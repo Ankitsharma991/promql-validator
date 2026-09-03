@@ -1,0 +1,49 @@
+{
+  "name": "@promql-validator/react",
+  "version": "0.1.0",
+  "description": "A drop-in, accessible, themeable React PromQL editor with validation and context-aware autocomplete.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "./dist/styles.css"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "@promql-validator/core": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsup && cp src/theme/styles.css dist/styles.css",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "promql",
+    "prometheus",
+    "react",
+    "editor",
+    "autocomplete",
+    "monitoring"
+  ]
+}

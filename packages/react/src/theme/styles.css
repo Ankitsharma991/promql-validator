@@ -1,0 +1,205 @@
+.promql-input-root {
+  --promql-input-background: #ffffff;
+  --promql-input-text: #1a1a1a;
+  --promql-input-border: #d0d5dd;
+  --promql-input-border-focus: #4f7cff;
+  --promql-input-error: #d92d20;
+  --promql-input-warning: #b54708;
+  --promql-input-placeholder: #98a2b3;
+  --promql-input-radius: 6px;
+  --promql-input-padding-x: 10px;
+  --promql-input-padding-y: 7px;
+  --promql-input-font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --promql-input-font-size: 13px;
+
+  --promql-suggestion-background: #ffffff;
+  --promql-suggestion-background-hover: #f2f4f7;
+  --promql-suggestion-background-selected: #eaf0ff;
+  --promql-suggestion-text: #1a1a1a;
+  --promql-suggestion-text-secondary: #667085;
+  --promql-suggestion-border: #eaecf0;
+
+  --promql-diagnostics-background: #fef3f2;
+  --promql-diagnostics-text: #7a271a;
+
+  position: relative;
+  font-family: var(--promql-input-font-family);
+  font-size: var(--promql-input-font-size);
+}
+
+.promql-input-root[data-theme='dark'] {
+  --promql-input-background: #14161a;
+  --promql-input-text: #e6e6e6;
+  --promql-input-border: #33363d;
+  --promql-input-border-focus: #6d8dff;
+  --promql-input-error: #f97066;
+  --promql-input-warning: #fdb022;
+  --promql-input-placeholder: #667085;
+
+  --promql-suggestion-background: #1c1f24;
+  --promql-suggestion-background-hover: #262a31;
+  --promql-suggestion-background-selected: #26314f;
+  --promql-suggestion-text: #e6e6e6;
+  --promql-suggestion-text-secondary: #9aa1ac;
+  --promql-suggestion-border: #2a2d34;
+
+  --promql-diagnostics-background: #2a1a17;
+  --promql-diagnostics-text: #ffb4a8;
+}
+
+.promql-input-box {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--promql-input-background);
+  color: var(--promql-input-text);
+  border: 1px solid var(--promql-input-border);
+  border-radius: var(--promql-input-radius);
+  padding: var(--promql-input-padding-y) var(--promql-input-padding-x);
+  transition: border-color 0.1s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promql-input-box {
+    transition: none;
+  }
+}
+
+.promql-input-box:focus-within {
+  border-color: var(--promql-input-border-focus);
+  outline: none;
+}
+
+.promql-input-box[data-severity='error'] {
+  border-color: var(--promql-input-error);
+}
+
+.promql-input-box[data-severity='warning'] {
+  border-color: var(--promql-input-warning);
+}
+
+.promql-input-box[data-disabled='true'] {
+  opacity: 0.55;
+}
+
+.promql-input-textbox {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  min-width: 0;
+}
+
+.promql-input-textbox::placeholder {
+  color: var(--promql-input-placeholder);
+}
+
+.promql-suggestion-popup {
+  position: absolute;
+  z-index: 50;
+  margin-top: 4px;
+  min-width: 240px;
+  max-width: 480px;
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--promql-suggestion-background);
+  border: 1px solid var(--promql-suggestion-border);
+  border-radius: var(--promql-input-radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+}
+
+.promql-suggestion-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  min-height: 32px;
+  justify-content: center;
+}
+
+.promql-suggestion-item[data-selected='true'] {
+  background: var(--promql-suggestion-background-selected);
+}
+
+.promql-suggestion-item:hover {
+  background: var(--promql-suggestion-background-hover);
+}
+
+.promql-suggestion-item-label-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--promql-suggestion-text);
+  font-size: var(--promql-input-font-size);
+}
+
+.promql-suggestion-item-category {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--promql-suggestion-text-secondary);
+}
+
+.promql-suggestion-item-description {
+  font-size: 11px;
+  color: var(--promql-suggestion-text-secondary);
+}
+
+.promql-suggestion-empty,
+.promql-suggestion-loading {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--promql-suggestion-text-secondary);
+}
+
+.promql-diagnostics-panel {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.promql-diagnostic-item {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--promql-diagnostics-background);
+  color: var(--promql-diagnostics-text);
+  margin-bottom: 2px;
+}
+
+.promql-diagnostic-item[data-severity='warning'] {
+  color: var(--promql-input-warning);
+  background: transparent;
+}
+
+.promql-diagnostic-item[data-severity='info'] {
+  color: var(--promql-suggestion-text-secondary);
+  background: transparent;
+}
+
+.promql-diagnostics-more {
+  font-size: 11px;
+  color: var(--promql-suggestion-text-secondary);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.promql-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

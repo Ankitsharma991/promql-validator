@@ -1,0 +1,58 @@
+{
+  "name": "promql-validator",
+  "version": "0.1.0",
+  "description": "An embeddable, framework-integrated (React-first) PromQL and monitoring-query editing toolkit — validation, context-aware autocomplete, and a themeable editor component.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "./dist/styles.css"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "@promql-validator/core": "0.1.0",
+    "@promql-validator/react": "0.1.0"
+  },
+  "scripts": {
+    "build": "tsup && cp ../react/dist/styles.css dist/styles.css",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "promql",
+    "prometheus",
+    "react",
+    "editor",
+    "autocomplete",
+    "monitoring",
+    "observability"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/promql-validator/promql-validator.git"
+  },
+  "homepage": "https://github.com/promql-validator/promql-validator#readme",
+  "bugs": {
+    "url": "https://github.com/promql-validator/promql-validator/issues"
+  }
+}

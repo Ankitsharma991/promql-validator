@@ -1,0 +1,41 @@
+{
+  "name": "promql-validator-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Monorepo for promql-validator: an embeddable PromQL validation, autocomplete, and editing toolkit.",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "examples/vite-react-ts"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint . --ext .ts,.tsx",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.16.0",
+    "@typescript-eslint/parser": "^7.16.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "jsdom": "^24.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.3",
+    "vitest": "^2.0.3"
+  }
+}
