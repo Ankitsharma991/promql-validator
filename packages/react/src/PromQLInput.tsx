@@ -1,4 +1,5 @@
 import React, {
+  Suspense,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -10,6 +11,7 @@ import {
   Diagnostic,
   DynamicSuggestionGroup,
   FormatOptions,
+  QuickFix,
   Suggestion,
   SuggestionCategoryConfig,
   SuggestionCacheOptions,
@@ -18,12 +20,25 @@ import {
   ValidationResult,
   Validator,
   formatPromQL,
+  getIncompleteBracketFix,
+  mergeSuggestionSources,
+  mergeValidationOptions,
+  mergePluginProviders,
+  type PromQLPlugin,
 } from '@promql-validator/core';
 import { handleBackspace, handleTypedCharacter } from './bracket-pairing.js';
 import { useDebouncedValidation } from './hooks/useDebouncedValidation.js';
+import { ValidationWorkerClient } from './worker-client.js';
+import { useSuggestionRegistry } from './SuggestionRegistry.js';
 import { useIsomorphicLayoutEffect } from './hooks/useIsomorphicLayoutEffect.js';
 import { useSuggestions } from './hooks/useSuggestions.js';
 import { SuggestionPopup } from './SuggestionPopup.js';
+
+// Loaded only when actually rendered (suggestionListMode="virtualized") — React.lazy's
+// factory isn't invoked until first mount, so this line alone never pulls the optional
+// @tanstack/react-virtual peer dependency into a consumer's bundle. See
+// VirtualizedSuggestionPopupImpl.tsx for the full rationale.
+const LazyVirtualizedSuggestionPopup = React.lazy(() => import('./VirtualizedSuggestionPopupImpl.js'));
 import { DiagnosticsPanel } from './DiagnosticsPanel.js';
 import { Theme, resolveTheme } from './theme/theme.js';
 
@@ -69,6 +84,13 @@ export interface PromQLInputProps {
   suggestionProvider?: SuggestionProvider;
   suggestionCategories?: SuggestionCategoryConfig;
   suggestionProviderCache?: SuggestionCacheOptions | false;
+  /**
+   * Distributable bundles of validators/dictionaries/suggestion sources (Part 71/72) — e.g.
+   * an org's own `@my-company/promql-plugin` package. Composable with the direct props
+   * above (a plugin's `validators` run *alongside* the `validators` prop, not instead of
+   * it); multiple plugins' `suggestionProvider`s are combined and run concurrently.
+   */
+  plugins?: PromQLPlugin[];
 
   validators?: Validator[];
   disableBuiltInValidation?: boolean;
@@ -76,14 +98,32 @@ export interface PromQLInputProps {
   unknownFunctionSeverity?: 'warning' | 'error' | 'off';
   customFunctions?: string[];
   disabledFunctions?: string[];
+  /** Query dialect for built-in validation. Default: 'promql'. See docs/metricsql.md. */
+  dialect?: 'promql' | 'metricsql';
+  /**
+   * Run built-in syntax/semantic validation in a Web Worker instead of the main thread.
+   * Default: false — our own benchmarks show the main thread isn't the bottleneck at any
+   * realistic query length, so this is an opt-in escalation for hosts with unusual
+   * constraints, not a default. Falls back transparently to the main thread if unavailable
+   * (SSR, older environments) or if it fails.
+   */
+  useWorker?: boolean;
 
   formatOnBlur?: boolean;
+  formatOnPaste?: boolean;
   formatShortcut?: boolean;
   formatOptions?: FormatOptions;
 
   autoCloseBrackets?: boolean;
   autoCloseQuotes?: boolean;
   suggestionDebounceMs?: number;
+  /** Open the suggestion popup on focus even when the query is empty. Default: false. */
+  suggestOnEmptyFocus?: boolean;
+  /**
+   * Session-local (this component instance only, never persisted — Part 26 Privacy)
+   * "recently used" ranking boost for inserted suggestions. Default: false.
+   */
+  trackRecentlyUsed?: boolean;
 
   className?: string;
   style?: React.CSSProperties;
@@ -99,6 +139,14 @@ export interface PromQLInputProps {
   name?: string;
   'aria-label'?: string;
   maxSuggestions?: number;
+  /**
+   * 'ranked-cap' (default): only the top `maxSuggestions` (default 50) ranked results are
+   * ever mounted — sufficient for the vast majority of use cases, since ranking already
+   * surfaces the most relevant items. 'virtualized': renders via `@tanstack/react-virtual`
+   * (an optional peer dependency — install it yourself to use this mode) for the rarer case
+   * of wanting to let users scroll through hundreds/thousands of unranked-feeling results.
+   */
+  suggestionListMode?: 'ranked-cap' | 'virtualized';
   keyboardConfig?: KeyboardConfig;
 }
 
@@ -122,6 +170,23 @@ function useStableId(prefix: string, providedId: string | undefined): string {
 
 const BRACKET_KEYS = new Set(['(', ')', '{', '}', '[', ']', '"', "'", '`']);
 
+/**
+ * The editable surface is a single-line `<input>` — the only element `role="combobox"` is
+ * valid on per the ARIA spec (combobox is explicitly defined as owning "a single-line
+ * textbox"; axe-core's `aria-allowed-role` rule correctly flags it on a `<textarea>`).
+ * `formatPromQL()` in `@promql-validator/core` fully supports multi-line, indented output
+ * (useful as-is for non-UI consumers — CLI linting, recording-rule-file formatting) but a
+ * value containing `\n` can't be written into an `<input>` at all (browsers silently strip
+ * newlines from `input[type=text].value`). Collapsing line breaks to a single space is
+ * semantics-preserving for PromQL (whitespace, including newlines, is not meaningful
+ * between tokens) — it just means the *displayed* result stays single-line in this
+ * component even when the underlying formatter would have broken a long aggregation
+ * across multiple lines.
+ */
+function collapseFormattedTextForSingleLineInput(formatted: string): string {
+  return formatted.replace(/\s*\n\s*/g, ' ').trim();
+}
+
 export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>(function PromQLInput(props, ref) {
   const {
     value: controlledValue,
@@ -141,18 +206,24 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     suggestionProvider,
     suggestionCategories,
     suggestionProviderCache,
+    plugins,
     validators,
     disableBuiltInValidation = false,
     validationDebounceMs = 150,
     unknownFunctionSeverity,
     customFunctions,
     disabledFunctions,
+    dialect,
+    useWorker = false,
     formatOnBlur = false,
+    formatOnPaste = false,
     formatShortcut = true,
     formatOptions,
     autoCloseBrackets = true,
     autoCloseQuotes = true,
     suggestionDebounceMs = 80,
+    suggestOnEmptyFocus = false,
+    trackRecentlyUsed = false,
     className,
     style,
     theme,
@@ -165,6 +236,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     name,
     'aria-label': ariaLabel,
     maxSuggestions = 50,
+    suggestionListMode = 'ranked-cap',
     keyboardConfig,
   } = props;
 
@@ -175,7 +247,9 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   const [selection, setSelection] = useState({ start: value.length, end: value.length });
   const [focused, setFocused] = useState(false);
   const [escapeClosed, setEscapeClosed] = useState(false);
+  const [forcedOpen, setForcedOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [recentlyUsedValues, setRecentlyUsedValues] = useState<string[]>([]);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -209,33 +283,88 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     }
   });
 
+  const workerClientRef = useRef<ValidationWorkerClient | null>(null);
+  const [workerReady, setWorkerReady] = useState(false);
+  useEffect(() => {
+    if (!useWorker) return;
+    // Constructed only here (inside an effect, client-side only) — never at module scope
+    // or during render, so this is inert during SSR (Part 88).
+    const client = new ValidationWorkerClient();
+    workerClientRef.current = client;
+    setWorkerReady(client.available);
+    return () => {
+      client.dispose();
+      workerClientRef.current = null;
+    };
+  }, [useWorker]);
+
+  // Plugins compose with (never replace) the direct props above — an empty/absent
+  // `plugins` array makes every merge* call here a harmless passthrough.
+  const mergedValidationOptions = useMemo(
+    () => mergeValidationOptions(plugins ?? [], { validators, customFunctions, disabledFunctions }),
+    [plugins, validators, customFunctions, disabledFunctions],
+  );
+
   const validationResult = useDebouncedValidation({
     value,
     debounceMs: validationDebounceMs,
     disableBuiltInValidation,
-    validators,
+    validators: mergedValidationOptions.validators,
     unknownFunctionSeverity,
-    customFunctions,
-    disabledFunctions,
+    customFunctions: mergedValidationOptions.customFunctions,
+    disabledFunctions: mergedValidationOptions.disabledFunctions,
+    dialect,
+    workerClient: useWorker ? workerClientRef.current : null,
   });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void workerReady; // referenced only to trigger a re-render once the worker becomes available
 
   useEffect(() => {
     if (validationResult) onValidation?.(validationResult);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validationResult]);
 
+  // A per-instance prop always wins; the shared registry (if any) only fills in what
+  // wasn't explicitly passed — see PromQLSuggestionRegistryProvider's docstring.
+  const registry = useSuggestionRegistry();
+  const effectiveSuggestions = suggestions ?? registry?.suggestions;
+  const effectiveDynamicSuggestions = dynamicSuggestions ?? registry?.dynamicSuggestions;
+  const effectiveSuggestionProvider = suggestionProvider ?? registry?.suggestionProvider;
+  const effectiveSuggestionCategories = suggestionCategories ?? registry?.suggestionCategories;
+  const effectiveSuggestionProviderCache = suggestionProviderCache ?? registry?.suggestionProviderCache;
+  // Only reuse the registry's shared controller when this instance is actually using the
+  // registry's provider (no per-instance override) — an instance with its own
+  // suggestionProvider must get its own controller, not one wired to a different provider.
+  const hasOwnProvider = Boolean(suggestionProvider) || Boolean(plugins?.some((p) => p.suggestionProvider));
+  const sharedController = hasOwnProvider ? null : registry?.sharedController;
+
+  const mergedSuggestionSources = useMemo(
+    () =>
+      mergeSuggestionSources(plugins ?? [], {
+        suggestions: effectiveSuggestions,
+        dynamicSuggestions: effectiveDynamicSuggestions,
+        suggestionCategories: effectiveSuggestionCategories,
+      }),
+    [plugins, effectiveSuggestions, effectiveDynamicSuggestions, effectiveSuggestionCategories],
+  );
+  // A plugin's own provider is combined with (never overridden by) any registry/direct
+  // provider — combineSuggestionProviders runs all of them concurrently.
+  const mergedSuggestionProvider = useMemo(() => mergePluginProviders(plugins ?? [], effectiveSuggestionProvider), [plugins, effectiveSuggestionProvider]);
+
   const suggestionsEnabled = !disabled && !readOnly;
   const { context, results, loading, asyncError } = useSuggestions({
     value,
     cursorPosition: selection.start,
-    suggestions,
-    dynamicSuggestions,
-    suggestionProvider,
-    suggestionCategories,
+    suggestions: mergedSuggestionSources.suggestions,
+    dynamicSuggestions: mergedSuggestionSources.dynamicSuggestions,
+    suggestionProvider: mergedSuggestionProvider,
+    suggestionCategories: mergedSuggestionSources.suggestionCategories,
     suggestionDebounceMs,
-    suggestionProviderCache,
+    suggestionProviderCache: effectiveSuggestionProviderCache,
     maxSuggestions,
     enabled: suggestionsEnabled,
+    recentlyUsedValues: trackRecentlyUsed ? recentlyUsedValues : undefined,
+    sharedController,
   });
 
   useEffect(() => {
@@ -246,7 +375,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     setHighlightedIndex((i) => (results.length === 0 ? 0 : Math.min(i, results.length - 1)));
   }, [results.length]);
 
-  const showPopup = focused && suggestionsEnabled && !escapeClosed && (results.length > 0 || loading);
+  const showPopup = focused && suggestionsEnabled && !escapeClosed && (results.length > 0 || loading) && (value.length > 0 || suggestOnEmptyFocus || forcedOpen);
 
   const insertSuggestion = useCallback(
     (index: number) => {
@@ -261,14 +390,17 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
       const newValue = value.slice(0, start) + finalText + value.slice(selection.end);
       commitValue(newValue, newCursor);
       inputRef.current?.focus();
+      if (trackRecentlyUsed) {
+        setRecentlyUsedValues((prev) => [s.value, ...prev.filter((v) => v !== s.value)].slice(0, 20));
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [results, context.tokenBeforeCursor, selection.start, selection.end, value],
+    [results, context.tokenBeforeCursor, selection.start, selection.end, value, trackRecentlyUsed],
   );
 
   const doFormat = useCallback(() => {
     try {
-      const formatted = formatPromQL(value, formatOptions);
+      const formatted = collapseFormattedTextForSingleLineInput(formatPromQL(value, formatOptions));
       if (formatted !== value) commitValue(formatted, formatted.length);
     } catch {
       // PromQLFormatError: leave the text exactly as-is rather than guessing (Part 16.2).
@@ -328,6 +460,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     if ((e.ctrlKey || e.metaKey) && key === ' ' && isKeyEnabled('forceOpen')) {
       e.preventDefault();
       setEscapeClosed(false);
+      setForcedOpen(true);
       return;
     }
 
@@ -356,6 +489,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
       if (key === 'Escape' && isKeyEnabled('Escape')) {
         e.preventDefault();
         setEscapeClosed(true);
+        setForcedOpen(false);
         return;
       }
     } else if (key === 'Enter' && isKeyEnabled('Enter')) {
@@ -393,9 +527,29 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   }
 
   function handlePaste() {
-    // Auto-pairing must never double-insert into pasted content — nothing to do here;
-    // the browser's native paste already inserts verbatim since we don't intercept it.
-    requestAnimationFrame(syncSelectionFromDom);
+    // Auto-pairing must never double-insert into pasted content — we don't intercept the
+    // paste event itself, the browser inserts verbatim. formatOnPaste (default false, an
+    // explicit opt-in — silently reformatting a user's pasted query is a "fights the user"
+    // violation per Part 16.3) reads the live DOM value after paste lands, not a stale
+    // pre-paste closure.
+    requestAnimationFrame(() => {
+      if (!formatOnPaste) {
+        syncSelectionFromDom();
+        return;
+      }
+      const el = inputRef.current;
+      if (!el) return;
+      try {
+        const formatted = collapseFormattedTextForSingleLineInput(formatPromQL(el.value, formatOptions));
+        if (formatted !== el.value) {
+          commitValue(formatted, formatted.length);
+          return;
+        }
+      } catch {
+        // PromQLFormatError: leave the pasted text exactly as-is.
+      }
+      syncSelectionFromDom();
+    });
   }
 
   function handleFocus(e: React.FocusEvent<HTMLInputElement>) {
@@ -406,6 +560,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   function handleBlur(e: React.FocusEvent<HTMLInputElement>) {
     setFocused(false);
     setEscapeClosed(false);
+    setForcedOpen(false);
     if (formatOnBlur) doFormat();
     onBlur?.(e);
   }
@@ -438,6 +593,14 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     setSelection({ start: d.start, end: d.end });
   }
 
+  function applyFix(fix: QuickFix) {
+    const applied = fix.apply(value);
+    commitValue(applied.value, applied.cursorPosition);
+    inputRef.current?.focus();
+  }
+
+  const incompleteBracketFix = validationResult ? getIncompleteBracketFix(validationResult, value) : null;
+
   const activeDescendant = showPopup && results[highlightedIndex] ? `${popupId}-option-${highlightedIndex}` : undefined;
 
   return (
@@ -449,6 +612,9 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
           name={name}
           type="text"
           role="combobox"
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
           aria-expanded={showPopup}
           aria-controls={popupId}
           aria-autocomplete="list"
@@ -482,7 +648,22 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
         )}
       </div>
 
-      {showPopup && (
+      {showPopup && suggestionListMode === 'virtualized' && (
+        <Suspense fallback={null}>
+          <LazyVirtualizedSuggestionPopup
+            id={popupId}
+            suggestions={results}
+            highlightedIndex={highlightedIndex}
+            loading={loading}
+            asyncError={asyncError}
+            onHover={setHighlightedIndex}
+            onSelect={insertSuggestion}
+            iconMap={iconMap}
+            classNames={classNames}
+          />
+        </Suspense>
+      )}
+      {showPopup && suggestionListMode !== 'virtualized' && (
         <SuggestionPopup
           ref={popupRef}
           id={popupId}
@@ -502,7 +683,14 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
       </span>
 
       {diagnosticsDisplay !== 'none' && validationResult && (
-        <DiagnosticsPanel diagnostics={validationResult.diagnostics} maxVisible={maxVisibleDiagnostics} onSelect={handleDiagnosticSelect} classNames={classNames} />
+        <DiagnosticsPanel diagnostics={validationResult.diagnostics} maxVisible={maxVisibleDiagnostics} onSelect={handleDiagnosticSelect} onApplyFix={applyFix} classNames={classNames} />
+      )}
+      {diagnosticsDisplay !== 'none' && incompleteBracketFix && (
+        <div className="promql-incomplete-hint">
+          <button type="button" className="promql-diagnostic-fix" onClick={() => applyFix(incompleteBracketFix)}>
+            {incompleteBracketFix.label}
+          </button>
+        </div>
       )}
     </div>
   );

@@ -136,8 +136,12 @@ describe('validatePromQL — dialect', () => {
     expect(validatePromQL('up', { dialect: 'promql' }).valid).toBe(true);
   });
 
-  it('throws UnsupportedDialectError for metricsql rather than silently misvalidating', () => {
-    expect(() => validatePromQL('up', { dialect: 'metricsql' })).toThrow(UnsupportedDialectError);
+  it('accepts a plain PromQL query under the metricsql dialect too (a strict superset)', () => {
+    expect(validatePromQL('rate(x[5m])', { dialect: 'metricsql' }).valid).toBe(true);
+  });
+
+  it('throws UnsupportedDialectError for a genuinely unknown dialect string', () => {
+    expect(() => validatePromQL('up', { dialect: 'made-up-dialect' as never })).toThrow(UnsupportedDialectError);
   });
 });
 

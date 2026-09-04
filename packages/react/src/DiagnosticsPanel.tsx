@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import type { Diagnostic } from '@promql-validator/core';
+import { getQuickFix, type Diagnostic, type QuickFix } from '@promql-validator/core';
 
 export interface DiagnosticsPanelProps {
   diagnostics: Diagnostic[];
   maxVisible: number;
   onSelect: (diagnostic: Diagnostic) => void;
+  /** Omit to disable the quick-fix UI entirely. */
+  onApplyFix?: (fix: QuickFix) => void;
   classNames?: { diagnostics?: string; diagnosticItem?: string };
 }
 
 const SEVERITY_ORDER: Record<Diagnostic['severity'], number> = { error: 0, warning: 1, info: 2 };
 
-export function DiagnosticsPanel({ diagnostics, maxVisible, onSelect, classNames }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({ diagnostics, maxVisible, onSelect, onApplyFix, classNames }: DiagnosticsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   if (diagnostics.length === 0) return null;
 
@@ -20,29 +22,32 @@ export function DiagnosticsPanel({ diagnostics, maxVisible, onSelect, classNames
 
   return (
     <div className={`promql-diagnostics-panel ${classNames?.diagnostics ?? ''}`.trim()} role="alert" aria-live="polite">
-      {visible.map((d, i) => (
-        <div
-          key={`${d.code}-${d.start}-${i}`}
-          className={`promql-diagnostic-item ${classNames?.diagnosticItem ?? ''}`.trim()}
-          data-severity={d.severity}
-          role="button"
-          tabIndex={0}
-          onClick={() => onSelect(d)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onSelect(d);
-            }
-          }}
-        >
-          <span>{d.message}</span>
-          {d.suggestion ? <span> — {d.suggestion}</span> : null}
-        </div>
-      ))}
+      {visible.map((d, i) => {
+        const fix = onApplyFix ? getQuickFix(d) : null;
+        return (
+          // A plain (non-interactive) row containing two sibling buttons — never nest a
+          // real <button> inside a role="button" element: nested interactive controls are
+          // an accessibility anti-pattern (ambiguous keyboard/screen-reader activation, and
+          // the outer element's computed accessible name would swallow the inner button's
+          // text, making the two indistinguishable to assistive tech and to accessible-name
+          // queries alike).
+          <div key={`${d.code}-${d.start}-${i}`} className={`promql-diagnostic-item ${classNames?.diagnosticItem ?? ''}`.trim()} data-severity={d.severity}>
+            <button type="button" className="promql-diagnostic-message" onClick={() => onSelect(d)}>
+              <span>{d.message}</span>
+              {d.suggestion ? <span> — {d.suggestion}</span> : null}
+            </button>
+            {fix && (
+              <button type="button" className="promql-diagnostic-fix" onClick={() => onApplyFix!(fix)}>
+                {fix.label}
+              </button>
+            )}
+          </div>
+        );
+      })}
       {!expanded && remaining > 0 && (
-        <div className="promql-diagnostics-more" role="button" tabIndex={0} onClick={() => setExpanded(true)}>
+        <button type="button" className="promql-diagnostics-more" onClick={() => setExpanded(true)}>
           +{remaining} more
-        </div>
+        </button>
       )}
     </div>
   );

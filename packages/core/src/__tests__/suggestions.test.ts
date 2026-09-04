@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getSuggestions } from '../suggestions/engine.js';
 import { extractContext } from '../suggestions/context-extractor.js';
+import { AsyncSuggestionController } from '../suggestions/async-controller.js';
 
 describe('extractContext', () => {
   it('classifies top-level at the start of an expression', () => {
@@ -36,6 +37,29 @@ describe('extractContext', () => {
 
   it('captures the partial token being typed', () => {
     expect(extractContext('ra', 2).tokenBeforeCursor).toBe('ra');
+  });
+
+  it('stays in label-value context and extracts the partial prefix while typing inside a quoted value', () => {
+    const query = 'http_requests_total{service="ap';
+    const ctx = extractContext(query, query.length);
+    expect(ctx.astContext).toBe('label-value');
+    expect(ctx.activeLabel).toBe('service');
+    expect(ctx.tokenBeforeCursor).toBe('ap');
+  });
+
+  it('flips back out of label-value once the quoted value is actually closed', () => {
+    const query = 'http_requests_total{service="api"';
+    const ctx = extractContext(query, query.length);
+    expect(ctx.astContext).not.toBe('label-value');
+    expect(ctx.tokenBeforeCursor).toBe('');
+  });
+
+  it('handles a cursor mid-way through an in-progress quoted value (not just at the end)', () => {
+    const query = 'http_requests_total{service="apx-server"}'; // cursor placed before "-server"
+    const cursor = query.indexOf('x-server');
+    const ctx = extractContext(query, cursor);
+    expect(ctx.astContext).toBe('label-value');
+    expect(ctx.tokenBeforeCursor).toBe('ap');
   });
 });
 
@@ -105,5 +129,58 @@ describe('getSuggestions — large datasets stay within cap', () => {
     const huge = Array.from({ length: 10_000 }, (_, i) => `pod-${i}`);
     const results = getSuggestions('http_requests_total{pod=', 25, { dynamicSuggestions: [{ category: 'pod', values: huge }] }, { maxSuggestions: 50 });
     expect(results.length).toBeLessThanOrEqual(50);
+  });
+});
+
+describe('AsyncSuggestionController — multi-subscriber support', () => {
+  it('notifies every subscriber, not just the most recent one (Part 28.4 shared registry)', async () => {
+    vi.useFakeTimers();
+    try {
+      const provider = vi.fn(async () => [{ label: 'x', value: 'x', category: 'custom' }]);
+      const controller = new AsyncSuggestionController({ provider, debounceMs: 10 });
+
+      const listenerA = vi.fn();
+      const listenerB = vi.fn();
+      controller.subscribe(listenerA);
+      controller.subscribe(listenerB);
+
+      controller.request({ query: 'x', cursorPosition: 1, tokenBeforeCursor: 'x', astContext: 'top-level' });
+      await vi.advanceTimersByTimeAsync(10);
+
+      expect(listenerA).toHaveBeenCalledWith(expect.objectContaining({ status: 'success' }));
+      expect(listenerB).toHaveBeenCalledWith(expect.objectContaining({ status: 'success' }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('unsubscribing one listener does not affect another', async () => {
+    vi.useFakeTimers();
+    try {
+      const provider = vi.fn(async () => [{ label: 'x', value: 'x', category: 'custom' }]);
+      const controller = new AsyncSuggestionController({ provider, debounceMs: 10 });
+
+      const listenerA = vi.fn();
+      const listenerB = vi.fn();
+      const unsubA = controller.subscribe(listenerA);
+      controller.subscribe(listenerB);
+      unsubA();
+
+      controller.request({ query: 'x', cursorPosition: 1, tokenBeforeCursor: 'x', astContext: 'top-level' });
+      await vi.advanceTimersByTimeAsync(10);
+
+      expect(listenerB).toHaveBeenCalledWith(expect.objectContaining({ status: 'success' }));
+      // listenerA only ever got its immediate-subscribe idle callback, never the success state.
+      expect(listenerA).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'success' }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a late subscriber immediately receives the current state, not a stale idle', () => {
+    const controller = new AsyncSuggestionController({ provider: async () => [] });
+    const late = vi.fn();
+    controller.subscribe(late);
+    expect(late).toHaveBeenCalledWith(controller.getLastState());
   });
 });

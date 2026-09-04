@@ -10,6 +10,9 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "promql-validator": "./dist/cli.mjs"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -191,6 +191,86 @@ describe('PromQLInput — imperative handle', () => {
   });
 });
 
+describe('PromQLInput — suggestOnEmptyFocus / formatOnPaste / trackRecentlyUsed', () => {
+  it('does not show a popup on empty-input focus by default', async () => {
+    render(<PromQLInput defaultValue="" aria-label="query" />);
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('shows a popup on empty-input focus when suggestOnEmptyFocus is set', async () => {
+    render(<PromQLInput defaultValue="" suggestOnEmptyFocus aria-label="query" />);
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
+  });
+
+  it('force-opens the popup on Ctrl+Space even for an empty query', async () => {
+    render(<PromQLInput defaultValue="" aria-label="query" />);
+    const input = screen.getByRole('combobox');
+    await userEvent.click(input);
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    await userEvent.keyboard('{Control>}{ }{/Control}');
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
+  });
+
+  it('reformats pasted content only when formatOnPaste is enabled', async () => {
+    // The editable surface is a single-line <input> (role="combobox" is only ARIA-valid on
+    // one — see collapseFormattedTextForSingleLineInput's docstring), so a multi-line
+    // formatted result gets collapsed to one line; what's still observable here is the
+    // formatter's canonical spacing (e.g. ", " between label names) being applied.
+    render(<PromQLInput defaultValue="" formatOnPaste aria-label="query" />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    await userEvent.click(input);
+    await userEvent.paste('sum by (service,namespace) (rate(http_requests_total{service="api"}[5m]))');
+    await waitFor(() => expect(input.value).toContain('service, namespace'));
+    expect(input.value).not.toContain('\n');
+  });
+
+  it('does not touch pasted content when formatOnPaste is false (default)', async () => {
+    render(<PromQLInput defaultValue="" aria-label="query" />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    await userEvent.click(input);
+    await userEvent.paste('rate(x[5m])');
+    expect(input.value).toBe('rate(x[5m])');
+  });
+});
+
+describe('PromQLInput — useWorker (graceful fallback in a non-Worker test environment)', () => {
+  it('still validates correctly, falling back to the main thread automatically', async () => {
+    render(<PromQLInput defaultValue="rate(x[5m)" useWorker validationDebounceMs={10} aria-label="query" />);
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument(), { timeout: 2000 });
+    expect(screen.getByRole('alert').textContent).toMatch(/closing/i);
+  });
+
+  it('never throws when mounting/unmounting with useWorker in an environment with no Worker global', () => {
+    const { unmount } = render(<PromQLInput defaultValue="up" useWorker aria-label="query" />);
+    expect(() => unmount()).not.toThrow();
+  });
+});
+
+describe('PromQLInput — quick fixes', () => {
+  it('offers a one-click fix for a missing label value and applies it', async () => {
+    render(<PromQLInput defaultValue="metric{label=}" validationDebounceMs={5} aria-label="query" />);
+    await screen.findByRole('alert');
+    const fixButton = await screen.findByRole('button', { name: /empty value/i });
+    await userEvent.click(fixButton);
+    expect(screen.getByRole('combobox')).toHaveValue('metric{label=""}');
+  });
+
+  it('offers a "close it for me" hint while a bracket is left open mid-typing (incomplete, not an error)', async () => {
+    render(<PromQLInput defaultValue="rate(x[5m" validationDebounceMs={5} aria-label="query" />);
+    const fixButton = await screen.findByRole('button', { name: /insert missing/i });
+    await userEvent.click(fixButton);
+    expect(screen.getByRole('combobox')).toHaveValue('rate(x[5m]');
+  });
+
+  it('does not show a fix button for a diagnostic with no confident automatic fix', async () => {
+    render(<PromQLInput defaultValue={'label_replace(up, "a")'} validationDebounceMs={5} aria-label="query" />);
+    await screen.findByRole('alert');
+    expect(screen.queryByRole('button', { name: /insert|empty value/i })).not.toBeInTheDocument();
+  });
+});
+
 describe('PromQLInput — disabled/read-only', () => {
   it('excludes a disabled input from suggestions and marks it aria-disabled', () => {
     render(<PromQLInput defaultValue="rate" disabled aria-label="query" />);

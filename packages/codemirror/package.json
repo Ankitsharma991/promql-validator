@@ -1,0 +1,56 @@
+{
+  "name": "@promql-validator/codemirror",
+  "version": "0.1.0",
+  "description": "CodeMirror 6 language extension for promql-validator — syntax highlighting, context-aware completion, and live linting, powered by @promql-validator/core.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "@codemirror/autocomplete": ">=6",
+    "@codemirror/language": ">=6",
+    "@codemirror/lint": ">=6",
+    "@codemirror/state": ">=6",
+    "@codemirror/view": ">=6"
+  },
+  "dependencies": {
+    "@promql-validator/core": "0.1.0"
+  },
+  "devDependencies": {
+    "@codemirror/autocomplete": "^6.18.0",
+    "@codemirror/language": "^6.10.2",
+    "@codemirror/lint": "^6.8.1",
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/view": "^6.28.6"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "promql",
+    "prometheus",
+    "codemirror",
+    "codemirror6",
+    "language",
+    "autocomplete"
+  ]
+}

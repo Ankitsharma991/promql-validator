@@ -38,6 +38,52 @@ jobs:
           npm pack --dry-run --workspace=packages/core
           npm pack --dry-run --workspace=packages/react
           npm pack --dry-run --workspace=packages/meta
+          npm pack --dry-run --workspace=packages/monaco
+          npm pack --dry-run --workspace=packages/codemirror
 
       - name: Dependency audit
         run: npm audit --audit-level=critical || true
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build --workspace=packages/core --workspace=packages/react
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E suite
+        run: npm run e2e
+        env:
+          CI: true
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build --workspace=packages/core
+
+      - name: Run performance benchmark (informational — not currently a hard regression gate)
+        run: npm run benchmark

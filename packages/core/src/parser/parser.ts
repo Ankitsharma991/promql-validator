@@ -132,18 +132,26 @@ export class Parser {
   private incomplete = false;
   private depth = 0;
   private reportedTooComplex = false;
+  private readonly dialect: 'promql' | 'metricsql';
 
-  constructor(source: string) {
+  constructor(source: string, dialect: 'promql' | 'metricsql' = 'promql') {
     this.tokens = tokenize(source.length > 200_000 ? source.slice(0, 200_000) : source);
+    this.dialect = dialect;
   }
 
-  static parse(source: string): ParseResult {
-    const parser = new Parser(source);
+  static parse(source: string, dialect: 'promql' | 'metricsql' = 'promql'): ParseResult {
+    const parser = new Parser(source, dialect);
     return parser.run();
   }
 
   private run(): ParseResult {
     const ast = this.parseExpr(0);
+    // MetricsQL's `keep_metric_names` modifier may trail the whole expression — tolerate
+    // it here rather than integrating it into the full grammar (Part 54's documented
+    // best-effort-subset stance for this dialect).
+    if (this.dialect === 'metricsql' && this.checkIdentifier('keep_metric_names')) {
+      this.advance();
+    }
     // Trailing garbage after a structurally complete expression.
     let guard = 0;
     while (!this.atEOF() && guard < MAX_TOKENS) {
@@ -761,6 +769,6 @@ export class Parser {
   }
 }
 
-export function parsePromQL(source: string): ParseResult {
-  return Parser.parse(source);
+export function parsePromQL(source: string, dialect: 'promql' | 'metricsql' = 'promql'): ParseResult {
+  return Parser.parse(source, dialect);
 }

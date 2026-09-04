@@ -4,6 +4,7 @@ import { COMMON_DURATIONS, PROMQL_OPERATORS } from './builtins/operators.js';
 import { BUILTIN_LABEL_NAMES, BUILTIN_MONITORING_TERMS } from './builtins/monitoring.js';
 import { extractContext } from './context-extractor.js';
 import { fuzzyScore } from './fuzzy.js';
+import { LARGE_SOURCE_THRESHOLD, indexedLookup } from './indexing.js';
 import {
   AstContext,
   DynamicSuggestionGroup,
@@ -135,10 +136,26 @@ function collectBuiltins(ctx: SuggestionContext, categoryConfig: SuggestionCateg
 }
 
 function collectStatic(sources: SuggestionSources, ctx: SuggestionContext, categoryConfig: SuggestionCategoryConfig | undefined): Candidate[] {
+  const values = sources.suggestions;
+  if (!values || values.length === 0) return [];
+  if (!defaultHostEligible(ctx.astContext)) return [];
+
   const out: Candidate[] = [];
-  for (const raw of sources.suggestions ?? []) {
+  const needle = ctx.tokenBeforeCursor.toLowerCase();
+
+  // Large host-supplied arrays go through the memoized sorted-prefix index (Part 27.2/90)
+  // instead of a full O(n) scan on every keystroke — see indexing.ts for the rationale.
+  if (values.length > LARGE_SOURCE_THRESHOLD) {
+    for (const s of indexedLookup(values, 'custom', needle)) {
+      const conf = categoryConfig?.[s.category ?? 'custom'];
+      if (conf?.enabled === false) continue;
+      out.push({ suggestion: s, sourceWeight: 300 + (conf?.priorityWeight ?? 0), contextBoost: 0 });
+    }
+    return out;
+  }
+
+  for (const raw of values) {
     const s = normalizeSuggestion(raw);
-    if (!defaultHostEligible(ctx.astContext)) continue;
     const conf = categoryConfig?.[s.category ?? 'custom'];
     if (conf?.enabled === false) continue;
     out.push({ suggestion: s, sourceWeight: 300 + (conf?.priorityWeight ?? 0), contextBoost: 0 });
@@ -148,6 +165,8 @@ function collectStatic(sources: SuggestionSources, ctx: SuggestionContext, categ
 
 function collectDynamic(sources: SuggestionSources, ctx: SuggestionContext, categoryConfig: SuggestionCategoryConfig | undefined): Candidate[] {
   const out: Candidate[] = [];
+  const needle = ctx.tokenBeforeCursor.toLowerCase();
+
   for (const group of sources.dynamicSuggestions ?? []) {
     const conf = categoryConfig?.[group.category];
     if (conf?.enabled === false) continue;
@@ -161,6 +180,18 @@ function collectDynamic(sources: SuggestionSources, ctx: SuggestionContext, cate
     if (!eligible) continue;
 
     const strongMatch = ctx.astContext === 'label-value' && ctx.activeLabel === group.category;
+
+    if (group.values.length > LARGE_SOURCE_THRESHOLD) {
+      for (const s of indexedLookup(group.values, group.category, needle)) {
+        out.push({
+          suggestion: s.category ? s : { ...s, category: group.category },
+          sourceWeight: 400 + (conf?.priorityWeight ?? 0),
+          contextBoost: strongMatch ? 300 : 0,
+        });
+      }
+      continue;
+    }
+
     for (const raw of group.values) {
       const s = normalizeSuggestion(raw, group.category);
       out.push({

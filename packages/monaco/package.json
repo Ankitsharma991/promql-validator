@@ -1,0 +1,48 @@
+{
+  "name": "@promql-validator/monaco",
+  "version": "0.1.0",
+  "description": "Monaco Editor language adapter for promql-validator — syntax highlighting, context-aware completion, and live diagnostics markers, powered by @promql-validator/core.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "monaco-editor": ">=0.40.0"
+  },
+  "dependencies": {
+    "@promql-validator/core": "0.1.0"
+  },
+  "devDependencies": {
+    "monaco-editor": "^0.50.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "promql",
+    "prometheus",
+    "monaco",
+    "monaco-editor",
+    "language",
+    "autocomplete"
+  ]
+}

@@ -89,6 +89,35 @@ formatPromQL('rate(x[5m])'); // deterministic, idempotent, semantics-preserving
 
 Custom validators run **alongside** the built-in one (composable) unless you opt out entirely with `disableBuiltInValidation`.
 
+Package multiple validators/dictionaries/suggestion sources together as a `plugins` array (composable the same way):
+
+```tsx
+const myOrgPlugin = { name: 'my-org', validators: [...], customFunctions: [...], dynamicSuggestions: [...] };
+<PromQLInput plugins={[myOrgPlugin]} />
+```
+
+## CLI (CI linting)
+
+```bash
+npx promql-validator lint queries.txt          # one query per line, exits 1 on any invalid query
+npx promql-validator lint rules.yml --rules     # validates every expr: field in a Prometheus rule file
+npx promql-validator lint queries.txt --format json
+```
+
+## Monaco / CodeMirror 6
+
+```ts
+// Monaco
+import { registerPromQLLanguage } from '@promql-validator/monaco';
+registerPromQLLanguage(monaco); // syntax highlighting + completion + live diagnostics markers
+
+// CodeMirror 6
+import { promql } from '@promql-validator/codemirror';
+new EditorView({ extensions: [promql()] });
+```
+
+Both are thin adapters over `@promql-validator/core` — `monaco-editor`/the `@codemirror/*` packages are optional peer dependencies, never bundled.
+
 ## Theming
 
 ```tsx
@@ -100,10 +129,29 @@ Everything is CSS custom properties (`--promql-input-*`, `--promql-suggestion-*`
 ## Architecture
 
 ```
-promql-validator            (meta package — re-exports @promql-validator/react)
+promql-validator            (meta package — re-exports @promql-validator/react + a lint CLI)
 @promql-validator/core      (parser, validator, formatter, suggestion engine — zero deps, no React/DOM)
 @promql-validator/react     (<PromQLInput/>, popup, theming, a11y, keyboard nav — React peer dep)
+@promql-validator/monaco    (Monaco Editor language adapter — monaco-editor is an optional peer dep)
+@promql-validator/codemirror (CodeMirror 6 language extension — @codemirror/* are optional peer deps)
 ```
+
+## MetricsQL (VictoriaMetrics) — best-effort subset
+
+```ts
+validatePromQL(query, { dialect: 'metricsql' }); // WITH (...) templates, keep_metric_names, an extension function dictionary
+```
+
+This is a **conservative, best-effort subset** of well-documented MetricsQL extensions, not a verified-against-live-documentation exhaustive implementation (VictoriaMetrics ships ~100 MetricsQL-specific functions; see `CHANGELOG-GRAMMAR.md` for exactly what's covered). An unrecognized MetricsQL function degrades to the same configurable warning as an unrecognized PromQL one — never a silent false pass.
+
+## Performance escalations (opt-in)
+
+```tsx
+<PromQLInput useWorker />                          {/* validation off the main thread */}
+<PromQLInput suggestionListMode="virtualized" />    {/* @tanstack/react-virtual, lazy-loaded, optional peer dep */}
+```
+
+Real measured numbers (not the defaults' story — see [docs/performance.md](./docs/performance.md)): 100,000-candidate suggestion filtering runs in ~0.01–0.2ms once its source array is indexed (memoized per array reference).
 
 The core is a **hand-written, error-tolerant recursive-descent PromQL parser** (not regex, not a generic parser-generator). It's error-tolerant specifically so that a query still being typed (`rate(`, `metric{`, `metric{label=`) produces a partial AST and useful, context-aware autocomplete — not just "syntax error." See `packages/core/src/parser/parser.ts`.
 
@@ -125,11 +173,15 @@ None. The package needs no configuration, API keys, or environment variables to 
 
 ```
 packages/
-  core/    @promql-validator/core   — parser, validator, formatter, suggestion engine
-  react/   @promql-validator/react  — <PromQLInput/>
-  meta/    promql-validator         — convenience re-export
+  core/        @promql-validator/core        — parser, validator, formatter, suggestion engine
+  react/       @promql-validator/react       — <PromQLInput/>
+  meta/        promql-validator              — convenience re-export + CLI
+  monaco/      @promql-validator/monaco      — Monaco Editor adapter
+  codemirror/  @promql-validator/codemirror  — CodeMirror 6 adapter
 examples/
 docs/
+e2e/           Playwright end-to-end suite (against examples/vite-react-ts)
+scripts/       benchmark.mjs — real, reproducible performance numbers
 ```
 
 ## Contributing

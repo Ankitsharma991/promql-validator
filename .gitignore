@@ -9,3 +9,8 @@ coverage/
 !.env.example
 *.tgz
 .turbo/
+test-results/
+playwright-report/
+blob-report/
+.next/
+next-env.d.ts

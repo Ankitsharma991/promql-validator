@@ -1,11 +1,21 @@
 import { Expr, isSynthetic } from '../parser/ast.js';
-import { findFunctionSpec, PROMQL_FUNCTION_NAMES } from '../suggestions/builtins/functions.js';
+import { findFunctionSpec, PROMQL_FUNCTION_NAMES, type FunctionSpec } from '../suggestions/builtins/functions.js';
+import { METRICSQL_FUNCTIONS, METRICSQL_FUNCTION_NAMES } from '../dialects/metricsql-functions.js';
 import { Diagnostic, DiagnosticCode, DiagnosticSeverity } from './diagnostics.js';
 
 export interface SemanticValidationOptions {
   unknownFunctionSeverity: 'warning' | 'error' | 'off';
   customFunctions?: string[];
   disabledFunctions?: string[];
+  dialect?: 'promql' | 'metricsql';
+}
+
+function findFunctionSpecForDialect(name: string, dialect: 'promql' | 'metricsql'): FunctionSpec | undefined {
+  if (dialect === 'metricsql') {
+    const ext = METRICSQL_FUNCTIONS.find((f) => f.name === name);
+    if (ext) return ext;
+  }
+  return findFunctionSpec(name);
 }
 
 export const DEFAULT_SEMANTIC_OPTIONS: SemanticValidationOptions = {
@@ -48,7 +58,9 @@ function closestFunctionName(name: string, known: Iterable<string>): string | un
 
 export function validateSemantics(ast: Expr, options: SemanticValidationOptions = DEFAULT_SEMANTIC_OPTIONS): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
+  const dialect = options.dialect ?? 'promql';
   const known = new Set(PROMQL_FUNCTION_NAMES);
+  if (dialect === 'metricsql') for (const f of METRICSQL_FUNCTION_NAMES) known.add(f);
   for (const f of options.customFunctions ?? []) known.add(f);
   for (const f of options.disabledFunctions ?? []) known.delete(f);
 
@@ -88,7 +100,7 @@ export function validateSemantics(ast: Expr, options: SemanticValidationOptions 
             );
           }
         } else {
-          const spec = findFunctionSpec(node.funcName);
+          const spec = findFunctionSpecForDialect(node.funcName, dialect);
           // Skip arity/type checks while the call is still open mid-typing (`rate(` with no
           // closing paren yet) — the argument list isn't finalized, so it isn't an error yet.
           if (spec && !node.openParen) {

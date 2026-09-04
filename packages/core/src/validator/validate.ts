@@ -1,5 +1,6 @@
 import { Expr } from '../parser/ast.js';
 import { parsePromQL } from '../parser/parser.js';
+import { expandWithTemplates } from '../dialects/with-templates.js';
 import { Diagnostic, ValidationResult } from './diagnostics.js';
 import { SemanticValidationOptions, validateSemantics, DEFAULT_SEMANTIC_OPTIONS } from './semantic.js';
 
@@ -16,10 +17,13 @@ export interface ValidationOptions {
   /** Guard against pathological input; queries longer than this skip live parsing (PQ_QUERY_TOO_LONG info diagnostic). */
   maxQueryLength?: number;
   /**
-   * Query dialect. Only `'promql'` (Prometheus, the default) is implemented. `'metricsql'`
-   * (VictoriaMetrics' superset) is a reserved value so the public API won't need a breaking
-   * change once it lands — selecting it throws rather than silently validating MetricsQL-only
-   * syntax against the PromQL grammar, which would produce misleading false-negative errors.
+   * Query dialect. `'promql'` (default) targets stable Prometheus PromQL. `'metricsql'`
+   * enables a **best-effort, conservative subset** of VictoriaMetrics' MetricsQL superset —
+   * `WITH (...)` templates, the `keep_metric_names` modifier, and a curated (not
+   * exhaustively verified) extension function dictionary. See METRICSQL_FUNCTIONS' module
+   * docstring for exactly what is and isn't covered. Diagnostics for the body of a `WITH`
+   * expression are positioned relative to the *expanded* (template-substituted) text, not
+   * the original source — a documented limitation of the textual-substitution approach.
    */
   dialect?: 'promql' | 'metricsql';
 }
@@ -28,14 +32,15 @@ const DEFAULT_MAX_QUERY_LENGTH = 10_000;
 
 export class UnsupportedDialectError extends Error {
   constructor(dialect: string) {
-    super(`dialect: '${dialect}' is not yet supported — only 'promql' is implemented. MetricsQL support is tracked as Phase 2/Future scope.`);
+    super(`dialect: '${dialect}' is not supported — expected 'promql' or 'metricsql'.`);
     this.name = 'UnsupportedDialectError';
   }
 }
 
 export function validatePromQL(query: string, options: ValidationOptions = {}): ValidationResult {
-  if (options.dialect && options.dialect !== 'promql') {
-    throw new UnsupportedDialectError(options.dialect);
+  const dialect = options.dialect ?? 'promql';
+  if (dialect !== 'promql' && dialect !== 'metricsql') {
+    throw new UnsupportedDialectError(dialect);
   }
 
   const trimmed = query.trim();
@@ -68,19 +73,31 @@ export function validatePromQL(query: string, options: ValidationOptions = {}): 
     return { valid: !diagnostics.some((d) => d.severity === 'error'), diagnostics, incomplete: false };
   }
 
-  const { ast, diagnostics: syntaxDiagnostics, incomplete } = parsePromQL(query);
+  let textToParse = query;
+  let withDiagnostics: Diagnostic[] = [];
+  if (dialect === 'metricsql') {
+    const withResult = expandWithTemplates(query);
+    if (withResult.diagnostics.length > 0) {
+      withDiagnostics = withResult.diagnostics;
+    } else {
+      textToParse = withResult.expanded;
+    }
+  }
+
+  const { ast, diagnostics: syntaxDiagnostics, incomplete } = parsePromQL(textToParse, dialect);
 
   const semanticOptions: SemanticValidationOptions = {
     unknownFunctionSeverity: options.unknownFunctionSeverity ?? DEFAULT_SEMANTIC_OPTIONS.unknownFunctionSeverity,
     customFunctions: options.customFunctions,
     disabledFunctions: options.disabledFunctions,
+    dialect,
   };
-  const semanticDiagnostics = validateSemantics(ast, semanticOptions);
+  const semanticDiagnostics = withDiagnostics.length > 0 ? [] : validateSemantics(ast, semanticOptions);
 
-  const customDiagnostics = (options.validators ?? []).flatMap((v) => v(ast, query));
+  const customDiagnostics = (options.validators ?? []).flatMap((v) => v(withDiagnostics.length > 0 ? null : ast, query));
 
-  const diagnostics = [...syntaxDiagnostics, ...semanticDiagnostics, ...customDiagnostics];
+  const diagnostics = [...withDiagnostics, ...syntaxDiagnostics, ...semanticDiagnostics, ...customDiagnostics];
   const valid = !diagnostics.some((d) => d.severity === 'error');
 
-  return { valid, diagnostics, incomplete };
+  return { valid, diagnostics, incomplete: withDiagnostics.length > 0 ? false : incomplete };
 }

@@ -166,10 +166,10 @@
 
 .promql-diagnostic-item {
   display: flex;
+  align-items: baseline;
   gap: 6px;
   padding: 4px 8px;
   border-radius: 4px;
-  cursor: pointer;
   background: var(--promql-diagnostics-background);
   color: var(--promql-diagnostics-text);
   margin-bottom: 2px;
@@ -185,9 +185,43 @@
   background: transparent;
 }
 
+.promql-diagnostic-message {
+  flex: 1;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.promql-diagnostic-fix {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.promql-incomplete-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--promql-suggestion-text-secondary);
+}
+
 .promql-diagnostics-more {
+  display: block;
+  font: inherit;
   font-size: 11px;
   color: var(--promql-suggestion-text-secondary);
+  background: transparent;
+  border: none;
+  text-align: left;
   padding: 2px 8px;
   cursor: pointer;
 }

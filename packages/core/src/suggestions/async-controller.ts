@@ -31,7 +31,11 @@ export class AsyncSuggestionController {
   private latestAppliedSequence = 0;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private abortController: AbortController | null = null;
-  private onStateChange: ((state: AsyncSuggestionState) => void) | null = null;
+  // A Set (not a single slot) — this controller can be shared across multiple consumers
+  // at once via PromQLSuggestionRegistryProvider (Part 28.4), each independently
+  // subscribing/unsubscribing without stomping on the others.
+  private readonly listeners = new Set<(state: AsyncSuggestionState) => void>();
+  private lastState: AsyncSuggestionState = { status: 'idle', results: [] };
 
   constructor(options: AsyncSuggestionControllerOptions) {
     this.provider = options.provider;
@@ -40,14 +44,22 @@ export class AsyncSuggestionController {
   }
 
   subscribe(listener: (state: AsyncSuggestionState) => void): () => void {
-    this.onStateChange = listener;
+    this.listeners.add(listener);
+    // A late subscriber (e.g. a second <PromQLInput/> mounting after a shared controller
+    // already has fresh state) sees the current state immediately rather than a stale 'idle'.
+    listener(this.lastState);
     return () => {
-      if (this.onStateChange === listener) this.onStateChange = null;
+      this.listeners.delete(listener);
     };
   }
 
+  getLastState(): AsyncSuggestionState {
+    return this.lastState;
+  }
+
   private emit(state: AsyncSuggestionState): void {
-    this.onStateChange?.(state);
+    this.lastState = state;
+    for (const listener of this.listeners) listener(state);
   }
 
   /** Schedules a (debounced) fetch for `context`. Safe to call on every keystroke. */
@@ -90,7 +102,7 @@ export class AsyncSuggestionController {
   dispose(): void {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.abortController?.abort();
-    this.onStateChange = null;
+    this.listeners.clear();
   }
 }
 

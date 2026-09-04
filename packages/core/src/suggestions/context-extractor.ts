@@ -14,6 +14,17 @@ interface Frame {
 const MATCH_OP_TYPES = new Set<TokenType>([TokenType.Assign, TokenType.EqMatch, TokenType.Neq, TokenType.NeqMatch]);
 
 /**
+ * True iff the lexer actually found a matching closing quote for this string token (as
+ * opposed to running off the end of the source mid-string, which is how PromQL is
+ * unavoidably tokenized while a label value is still being typed, e.g. `service="ap`).
+ * Derived purely from the resulting token span — correct because the lexer's own scan
+ * only stops early at a genuine closing-quote match, never speculatively.
+ */
+function isTerminatedString(tok: Token, query: string): boolean {
+  return tok.end - tok.start >= 2 && query[tok.end - 1] === query[tok.start];
+}
+
+/**
  * Walks the token stream up to `cursorPosition` with a lightweight bracket-stack machine
  * to classify the cursor's grammatical position. Token-based (not a full AST walk) so it
  * stays robust on genuinely malformed/mid-typing input, which is the common case this
@@ -33,13 +44,29 @@ export function extractContext(query: string, cursorPosition: number): Suggestio
     const tok = tokens[i]!;
     if (tok.type === TokenType.EOF) break;
     if (tok.start >= cursorPosition) break;
+
+    if (tok.type === TokenType.String && tok.end >= cursorPosition && !isTerminatedString(tok, query)) {
+      // Cursor is inside (or at the trailing edge of) a label value that's still being
+      // typed — e.g. `service="ap` with the cursor at the end. Extract the raw partial
+      // content directly from the source (not the lexer's unescaped `.value`, so offsets
+      // stay simple) and deliberately do NOT add this token to `priorTokens`: the
+      // bracket-stack walk below must still see this label's match-operator as the most
+      // recent thing that happened, so `pendingLabelValueFor` stays set and the context
+      // correctly stays `label-value` instead of flipping back to `label-name`.
+      cursorTokenIndex = i;
+      tokenBeforeCursor = query.slice(tok.start + 1, cursorPosition);
+      continue;
+    }
+
     if (tok.end <= cursorPosition) {
       priorTokens.push(tok);
     } else if (tok.start < cursorPosition && cursorPosition < tok.end) {
-      // Cursor lands inside this token (typing mid-word) — treat its prefix as the
-      // in-progress token text and don't count it as "prior" for bracket tracking.
+      // Cursor lands inside this token (typing/editing mid-word). For a String token,
+      // `.value` is offset by one from the source span (the opening quote has no
+      // corresponding character in the unescaped value) — slice the raw source instead of
+      // `.value` so the prefix length is right regardless of that delimiter.
       cursorTokenIndex = i;
-      tokenBeforeCursor = tok.value.slice(0, cursorPosition - tok.start);
+      tokenBeforeCursor = tok.type === TokenType.String ? query.slice(tok.start + 1, cursorPosition) : tok.value.slice(0, cursorPosition - tok.start);
     }
   }
   void cursorTokenIndex;

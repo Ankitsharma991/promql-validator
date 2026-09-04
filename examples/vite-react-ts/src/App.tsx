@@ -85,6 +85,12 @@ export default function App() {
         <code>{'<PromQLInput />'}</code> with no props — validation and built-in PromQL/monitoring autocomplete still work.
       </p>
       <PromQLInput defaultValue="histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))" theme={dark ? 'dark' : 'light'} aria-label="Zero-config PromQL query" style={{ width: '100%' }} />
+
+      <h2 style={{ fontSize: 15, marginTop: 32 }}>Web Worker validation (useWorker)</h2>
+      <p style={{ color: dark ? '#9aa1ac' : '#667085', fontSize: 13 }}>
+        Built-in syntax/semantic validation runs off the main thread here — only verifiable in a real browser (jsdom has no <code>Worker</code>), which is exactly what this section is for.
+      </p>
+      <PromQLInput defaultValue="rate(x[5m)" useWorker theme={dark ? 'dark' : 'light'} aria-label="Worker-validated PromQL query" style={{ width: '100%' }} />
     </div>
   );
 }

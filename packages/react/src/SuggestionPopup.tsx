@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Suggestion } from '@promql-validator/core';
+import { SuggestionItemContent } from './SuggestionItemContent.js';
 
 export interface SuggestionPopupProps {
   id: string;
@@ -11,10 +12,6 @@ export interface SuggestionPopupProps {
   onSelect: (index: number) => void;
   iconMap?: Record<string, React.ReactNode>;
   classNames?: { popup?: string; item?: string; itemSelected?: string };
-}
-
-function labelText(s: Suggestion): string {
-  return s.label;
 }
 
 export const SuggestionPopup = React.forwardRef<HTMLDivElement, SuggestionPopupProps>(function SuggestionPopup(
@@ -45,13 +42,7 @@ export const SuggestionPopup = React.forwardRef<HTMLDivElement, SuggestionPopupP
             onMouseEnter={() => onHover(i)}
             onClick={() => onSelect(i)}
           >
-            <div className="promql-suggestion-item-label-row">
-              {s.icon && iconMap?.[s.icon] ? <span aria-hidden="true">{iconMap[s.icon]}</span> : null}
-              <span>{labelText(s)}</span>
-              {s.category ? <span className="promql-suggestion-item-category">{s.category}</span> : null}
-              {s.detail ? <span className="promql-suggestion-item-category">{s.detail}</span> : null}
-            </div>
-            {s.description ? <div className="promql-suggestion-item-description">{s.description}</div> : null}
+            <SuggestionItemContent suggestion={s} iconMap={iconMap} />
           </div>
         );
       })}
