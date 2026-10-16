@@ -20,6 +20,8 @@
     "dev": "npm run dev --workspaces --if-present",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify": "npm run clean && npm run build && npm run lint && npm run typecheck && npm test && npm run size",
+    "verify:full": "npm run verify && npm run build:examples && npm run docs:build && npm run e2e -- --project=chromium",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint . --ext .ts,.tsx",
     "clean": "npm run clean --workspaces --if-present",
@@ -33,7 +35,8 @@
     "e2e": "playwright test",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "prepare": "node scripts/install-git-hooks.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.7",

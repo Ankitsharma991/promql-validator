@@ -9,6 +9,8 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     strategy:
+      # Report every Node version instead of cancelling the rest after the first failure.
+      fail-fast: false
       matrix:
         node-version: [20, 22, 24]
     steps:
@@ -21,17 +23,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm test -- --run
-
-      - name: Build
-        run: npm run build
+      # The same command the local pre-push hook runs: clean build, lint, typecheck,
+      # tests and bundle-size budgets, in that order.
+      - name: Verify
+        run: npm run verify
 
       - name: Package integrity (npm pack --dry-run)
         run: |
@@ -40,10 +35,6 @@ jobs:
           npm pack --dry-run --workspace=packages/meta
           npm pack --dry-run --workspace=packages/monaco
           npm pack --dry-run --workspace=packages/codemirror
-
-      - name: Bundle size budgets
-        if: matrix.node-version == 22
-        run: npm run size
 
       - name: Dependency audit
         run: npm audit --audit-level=critical || true
@@ -59,7 +50,8 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npm run build --workspace=packages/core --workspace=packages/react
+      # The example app under test also uses the Monaco and CodeMirror adapters.
+      - run: npm run build
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit

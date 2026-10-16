@@ -4,6 +4,8 @@ The versioning rules, the support window and the tested versions are on [Compati
 
 ## How releases are made
 
+Releases are published from a maintainer's machine with `npx changeset publish` (it only publishes versions that aren't on npm yet). The *Release* workflow in GitHub Actions does the same from CI with provenance and SBOMs, but only when started by hand, and only once an `NPM_TOKEN` secret is configured.
+
 Releases use [Changesets](https://github.com/changesets/changesets):
 
 1. A pull request that changes published behaviour adds a changeset (`npm run changeset`) describing the bump (patch, minor or major) and a one-line summary.

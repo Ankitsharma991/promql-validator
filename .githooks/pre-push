@@ -1,0 +1,19 @@
+#!/bin/sh
+# Runs the CI checks locally and blocks the push if any fail, so broken commits never
+# reach GitHub. CI runs the very same `npm run verify:full`.
+#
+# Skip once (e.g. a docs-only push when you're sure):  git push --no-verify
+
+# The checks run on the files on disk, so make sure those are exactly what's being pushed.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "pre-push: you have uncommitted changes. Commit or stash them first, so the checks"
+  echo "          test exactly what you're pushing (or use 'git push --no-verify' to skip)."
+  exit 1
+fi
+
+echo "pre-push: running 'npm run verify:full' (clean build, lint, typecheck, tests, size, examples, docs, e2e)…"
+if ! npm run verify:full; then
+  echo ""
+  echo "pre-push: checks failed, push cancelled. Fix the errors above and push again."
+  exit 1
+fi

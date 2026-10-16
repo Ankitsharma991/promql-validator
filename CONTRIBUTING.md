@@ -12,9 +12,13 @@ npm run build       # builds every package (the React package imports core's bui
 npm test            # vitest: unit, component, conformance, accessibility
 ```
 
+`npm install` also turns on a **pre-push hook** (`.githooks/pre-push`). Every `git push` first runs `npm run verify:full`, the same checks as CI: a clean build, lint, typecheck, tests, size budgets, the example apps, the docs site and the Chromium end-to-end tests (about 2–3 minutes). If anything fails, or you have uncommitted changes, the push is cancelled. Use `git push --no-verify` to skip it in an emergency. The end-to-end tests need a browser once: `npx playwright install chromium`.
+
 Other useful scripts:
 
 ```bash
+npm run verify      # what CI's build-test job runs: clean build, lint, typecheck, tests, size
+npm run verify:full # verify + examples + docs + e2e (what the pre-push hook runs)
 npm run typecheck   # tsc --noEmit in every package
 npm run lint
 npm run size        # bundle size budgets (.size-limit.json)

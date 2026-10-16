@@ -1,8 +1,9 @@
 name: Release
 
+# Run by hand (Actions → Release → Run workflow), so it never races a manual
+# `npx changeset publish` from your machine.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -24,10 +25,17 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      - name: Check the npm token is configured
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::Add an NPM_TOKEN repository secret (Settings → Secrets and variables → Actions) before releasing from CI."
+            exit 1
+          fi
+
       - run: npm ci
-      - run: npm run build
-      - run: npm test -- --run
-      - run: npm run size
+      - run: npm run verify
 
       - name: Generate SBOM (CycloneDX)
         run: |
