@@ -38,6 +38,10 @@ import { CheckIcon } from './icons.js';
 import { isMetricNameSuggestion, isRangeVectorArgSlot } from './range-slot.js';
 import { resolveMessages, type PromQLMessages } from './messages.js';
 import type { TelemetryHooks } from './telemetry.js';
+import { injectStylesheet } from './theme/inject-styles.js';
+
+// Runs before layout so the first paint is already styled (React 18+); falls back otherwise.
+const useStyleEffect = React.useInsertionEffect ?? useIsomorphicLayoutEffect;
 
 // Loaded only when actually rendered (suggestionListMode="virtualized") — React.lazy's
 // factory isn't invoked until first mount, so this line alone never pulls the optional
@@ -131,7 +135,9 @@ export interface PromQLInputProps {
   trackRecentlyUsed?: boolean;
 
   className?: string;
-  style?: React.CSSProperties;
+  /** Inline styles for the root element. CSS variables are accepted too:
+   *  `style={{ maxWidth: 600, '--promql-input-radius': '0px' }}`. */
+  style?: React.CSSProperties & { [token: `--${string}`]: string | number | undefined };
   /** 'light' (default), 'dark', 'system' (follows `prefers-color-scheme`), or token overrides. */
   theme?: Theme;
   /**
@@ -139,6 +145,14 @@ export interface PromQLInputProps {
    * false to render a plain text input (e.g. when the host applies its own text styling).
    */
   syntaxHighlighting?: boolean;
+  /**
+   * Add the default stylesheet to the page automatically. Default: true. Set to false if
+   * you import `promql-validator/styles.css` yourself, e.g. under a Content-Security-Policy
+   * that blocks inline styles.
+   */
+  injectStyles?: boolean;
+  /** CSP nonce for the injected `<style>` element. */
+  styleNonce?: string;
   /** Override or translate any UI string. See `PromQLMessages`. */
   messages?: Partial<PromQLMessages>;
   /** BCP-47 language tag set as `lang` on the root element (helps screen readers). */
@@ -254,6 +268,8 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     style,
     theme,
     syntaxHighlighting = true,
+    injectStyles = true,
+    styleNonce,
     messages: messageOverrides,
     locale,
     telemetryHooks,
@@ -336,6 +352,10 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
       workerClientRef.current = null;
     };
   }, [useWorker]);
+
+  useStyleEffect(() => {
+    if (injectStyles) injectStylesheet(styleNonce);
+  }, [injectStyles, styleNonce]);
 
   const messages = useMemo(() => resolveMessages(messageOverrides), [messageOverrides]);
 

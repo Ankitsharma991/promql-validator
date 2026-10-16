@@ -8,8 +8,7 @@ npm install promql-validator
 
 ```tsx
 import { useState } from 'react';
-import { PromQLInput } from 'promql-validator';
-import 'promql-validator/styles.css';
+import PromQLInput from 'promql-validator';
 
 export function QueryEditor() {
   const [query, setQuery] = useState('rate(http_requests_total[5m])');
@@ -17,7 +16,7 @@ export function QueryEditor() {
 }
 ```
 
-That's all the setup you need. Highlighting, validation, built-in autocomplete and bracket completion work immediately.
+That's all the setup you need. There's no stylesheet to import: the default styles come with the component, and highlighting, validation, autocomplete and bracket completion work immediately. `import { PromQLInput } from 'promql-validator'` works too.
 
 This package bundles [`@promql-validator/react`](https://www.npmjs.com/package/@promql-validator/react) and [`@promql-validator/core`](https://www.npmjs.com/package/@promql-validator/core) and adds a CLI. If you don't use React, install `@promql-validator/core` instead.
 
@@ -34,6 +33,56 @@ This package bundles [`@promql-validator/react`](https://www.npmjs.com/package/@
 - **i18n, telemetry hooks and plugins** for larger products.
 - **CLI** for linting queries and Prometheus rule files in CI.
 - **Private by design**: no network requests of its own, nothing persisted, works offline.
+
+## Make it yours
+
+Everything visual can be changed without fighting specificity, because the default styles load before your own CSS.
+
+```tsx
+// Built-in themes
+<PromQLInput theme="dark" />
+<PromQLInput theme="system" />  {/* follows the OS setting */}
+
+// Your own class and inline styles, including any of the CSS variables
+<PromQLInput
+  className="query-box"
+  style={{ maxWidth: 640, '--promql-input-radius': '0px', '--promql-input-border-focus': '#f46800' }}
+/>
+
+// A dark base with your brand colours
+<PromQLInput theme={{ base: 'dark', tokens: { '--promql-input-background': '#181b1f', '--promql-syntax-function': '#ff9830' } }} />
+
+// Classes on individual parts
+<PromQLInput classNames={{ input: 'query-input', popup: 'query-popup', diagnostics: 'query-errors' }} />
+```
+
+```css
+/* or plain CSS, anywhere in your app */
+.promql-input-root {
+  --promql-input-font-family: 'JetBrains Mono', monospace;
+  --promql-input-height: 40px;
+}
+```
+
+There are 64 CSS variables covering colours, sizes, fonts, syntax colours and the popup. See [Theming](https://github.com/Ankitsharma991/promql-validator/blob/main/docs/theming.md) for the full list.
+
+### Styles and CSP
+
+The component adds one `<style>` tag on first render. If your Content-Security-Policy blocks inline styles, pass `styleNonce`, or turn injection off and load the file yourself:
+
+```tsx
+import 'promql-validator/styles.css';
+
+<PromQLInput injectStyles={false} />
+```
+
+For server-rendered pages without a flash of unstyled content, render the stylesheet into `<head>` yourself; the component will see it and not add a second copy:
+
+```tsx
+import { promqlStylesheet } from 'promql-validator';
+
+<style id="promql-validator-styles" dangerouslySetInnerHTML={{ __html: promqlStylesheet }} />
+```
 
 ## Common setups
 
@@ -106,6 +155,8 @@ formatPromQL('sum by (job,code) (rate(x[5m]))'); // 'sum by (job, code) (rate(x[
 | `dynamicSuggestions` | `DynamicSuggestionGroup[]` | | Your label values, metrics, services… |
 | `suggestionProvider` | `(context, { signal }) => Promise<Suggestion[]>` | | Async suggestions |
 | `theme` | `'light' \| 'dark' \| 'system' \| ThemeOverrides` | `'light'` | |
+| `className` / `style` / `classNames` | | | Your own classes, inline styles and CSS variables |
+| `injectStyles` | `boolean` | `true` | Add the default styles automatically |
 | `dialect` | `'promql' \| 'metricsql'` | `'promql'` | |
 | `diagnosticsDisplay` | `'below' \| 'inline' \| 'none'` | `'below'` | Where errors are shown |
 | `showValidIndicator` | `boolean` | `false` | Green check for valid queries |
@@ -113,7 +164,7 @@ formatPromQL('sum by (job,code) (rate(x[5m]))'); // 'sum by (job, code) (rate(x[
 | `messages` / `locale` | | | Translate any UI text |
 | `telemetryHooks` | | | Opt-in timing events |
 
-The full list (54 props, plus a ref API) is in the [editor component docs](https://github.com/Ankitsharma991/promql-validator/blob/main/docs/editor-component.md).
+The full list (56 props, plus a ref API) is in the [editor component docs](https://github.com/Ankitsharma991/promql-validator/blob/main/docs/editor-component.md).
 
 ## CLI
 

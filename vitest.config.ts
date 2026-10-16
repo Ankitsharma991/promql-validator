@@ -7,5 +7,7 @@ export default defineConfig({
     environmentMatchGlobs: [['packages/react/**', 'jsdom']],
     setupFiles: ['packages/react/vitest.setup.ts'],
     globals: false,
+    // Process CSS so `styles.css?inline` resolves to the real stylesheet in tests.
+    css: true,
   },
 });

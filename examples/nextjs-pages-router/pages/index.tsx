@@ -22,6 +22,7 @@ export default function Home({ initialQuery }: InferGetStaticPropsType<typeof ge
         <code>initialQuery</code> comes from <code>getStaticProps</code> (statically generated at build time). Try an invalid query like <code>rate(x[5m)</code> to see the diagnostics panel.
       </p>
       <PromQLInput
+        injectStyles={false}
         value={query}
         onChange={setQuery}
         onValidation={setValidation}

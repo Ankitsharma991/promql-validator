@@ -10,7 +10,6 @@ npm install @promql-validator/react
 
 ```tsx
 import { PromQLInput } from '@promql-validator/react';
-import '@promql-validator/react/styles.css';
 
 <PromQLInput
   value={query}
@@ -22,7 +21,7 @@ import '@promql-validator/react/styles.css';
 />;
 ```
 
-Peer dependencies: `react` and `react-dom` 18 or newer. `@tanstack/react-virtual` is an optional peer, needed only for `suggestionListMode="virtualized"`.
+Peer dependencies: `react` and `react-dom` 18 or newer.
 
 ## What you get
 
@@ -31,7 +30,7 @@ Peer dependencies: `react` and `react-dom` 18 or newer. `@tanstack/react-virtual
 - Functions insert as `rate(|)`. A metric picked inside a range function becomes `rate(metric[5m])`.
 - Diagnostics with severity icons, `line:column` positions and one-click quick fixes.
 - Bracket and quote auto-closing, formatting (`Shift+Alt+F` / `Cmd+Shift+F`), `onSubmit` on Enter.
-- Light, dark and `system` themes, with 64 CSS variables for full control.
+- Default styles injected automatically (no CSS import), with light, dark and `system` themes and 64 CSS variables for full control. Use `injectStyles={false}` and `@promql-validator/react/styles.css` for strict CSP setups.
 - ARIA combobox, full keyboard support and screen-reader announcements, axe-tested.
 - SSR-safe: no `window`/`document` access during render or import.
 
@@ -39,10 +38,11 @@ Peer dependencies: `react` and `react-dom` 18 or newer. `@tanstack/react-virtual
 
 | Export | |
 |---|---|
-| `PromQLInput` | The editor component. Accepts a ref (`PromQLInputHandle`): `focus`, `blur`, `format`, `insertAtCursor`, `getValidationResult`, `getEditorState`. |
+| `PromQLInput` (also the default export) | The editor component. Accepts a ref (`PromQLInputHandle`): `focus`, `blur`, `format`, `insertAtCursor`, `getValidationResult`, `getEditorState`. |
 | `PromQLValidatorProvider` | Shares suggestions, an async provider (with one cache) and plugins across every editor below it. Also exported as `PromQLSuggestionRegistryProvider`. |
 | `defaultMessages`, `PromQLMessages` | The UI string catalog, for translation. |
 | `TelemetryHooks` | Type for the opt-in `telemetryHooks` prop. |
+| `promqlStylesheet` | The default stylesheet as a string, for rendering into `<head>` during SSR. |
 | `ValidationWorkerClient` | Runs validation in a Web Worker (used by the `useWorker` prop). |
 | everything from `@promql-validator/core` | `validatePromQL`, `formatPromQL`, `getSuggestions`, … |
 
@@ -56,7 +56,7 @@ Peer dependencies: `react` and `react-dom` 18 or newer. `@tanstack/react-virtual
 
 **Editing**: `autoCloseBrackets`, `autoCloseQuotes`, `formatShortcut`, `formatOnBlur`, `formatOnPaste`, `formatOptions`, `keyboardConfig`.
 
-**Display**: `theme`, `syntaxHighlighting`, `diagnosticsDisplay`, `maxVisibleDiagnostics`, `showValidIndicator`, `className`, `classNames`, `style`, `iconMap`.
+**Display**: `theme`, `injectStyles`, `styleNonce`, `syntaxHighlighting`, `diagnosticsDisplay`, `maxVisibleDiagnostics`, `showValidIndicator`, `className`, `classNames`, `style`, `iconMap`.
 
 **Product**: `messages`, `locale`, `telemetryHooks`, `instanceId`.
 

@@ -2,6 +2,27 @@
 
 Everything visual is a CSS custom property on `.promql-input-root`. There's no CSS-in-JS runtime and no brand colour baked in.
 
+## Default styles
+
+The component adds its stylesheet to the page the first time it renders, as a single `<style id="promql-validator-styles">` placed **first** in `<head>`. Your own stylesheets come after it, so plain CSS overrides work without `!important` or extra specificity.
+
+| Situation | What to do |
+|---|---|
+| Normal app | Nothing; styles are automatic. |
+| Content-Security-Policy with nonces | `<PromQLInput styleNonce={nonce} />` |
+| CSP that forbids inline styles | `import 'promql-validator/styles.css'` and `<PromQLInput injectStyles={false} />` |
+| Server rendering without a flash of unstyled content | Render the stylesheet in `<head>` yourself (below). The component sees it and won't add another. |
+
+```tsx
+import { promqlStylesheet } from 'promql-validator';
+
+// in your document <head>; it's the package's own static CSS. Passed as plain
+// children, React would escape the `>` in its selectors.
+<style id="promql-validator-styles" dangerouslySetInnerHTML={{ __html: promqlStylesheet }} />
+```
+
+## Themes and tokens
+
 ```tsx
 <PromQLInput theme="light" />   {/* default */}
 <PromQLInput theme="dark" />
@@ -10,6 +31,12 @@ Everything visual is a CSS custom property on `.promql-input-root`. There's no C
 ```
 
 `theme` is under your control, so your app's own theme state stays the source of truth. Use `'system'` if you simply want to follow the operating system.
+
+Or set them per instance with `style`, which accepts CSS variables:
+
+```tsx
+<PromQLInput className="query-box" style={{ maxWidth: 640, '--promql-input-radius': '0px' }} />
+```
 
 You can also override tokens globally in CSS:
 

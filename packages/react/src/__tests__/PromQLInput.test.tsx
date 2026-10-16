@@ -461,3 +461,15 @@ describe('PromQLInput — diagnostics while the popup is open', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/closing/i);
   });
 });
+
+describe('PromQLInput — customisation', () => {
+  it('applies className, style and CSS-variable overrides to the root', () => {
+    render(<PromQLInput className="my-editor" style={{ maxWidth: 600, '--promql-input-radius': '0px' }} theme={{ base: 'dark', tokens: { '--promql-syntax-function': '#ff9830' } }} aria-label="query" />);
+    const root = screen.getByRole('combobox').closest('.promql-input-root') as HTMLElement;
+    expect(root).toHaveClass('my-editor');
+    expect(root).toHaveAttribute('data-theme', 'dark');
+    expect(root.style.maxWidth).toBe('600px');
+    expect(root.style.getPropertyValue('--promql-input-radius')).toBe('0px');
+    expect(root.style.getPropertyValue('--promql-syntax-function')).toBe('#ff9830');
+  });
+});

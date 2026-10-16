@@ -4,7 +4,6 @@
 
 ```tsx
 import { PromQLInput } from 'promql-validator';
-import 'promql-validator/styles.css';
 
 <PromQLInput value={query} onChange={setQuery} onSubmit={runQuery} aria-label="PromQL query" />;
 ```
@@ -59,7 +58,7 @@ import 'promql-validator/styles.css';
 | `suggestionProviderCache` | `SuggestionCacheOptions \| false` | 30 s TTL, 200 entries | In memory only. |
 | `suggestionDebounceMs` | `number` | `80` | Delay before calling the async provider. |
 | `maxSuggestions` | `number` | `50` | |
-| `suggestionListMode` | `'ranked-cap' \| 'virtualized'` | `'ranked-cap'` | `virtualized` needs `@tanstack/react-virtual`. |
+| `suggestionListMode` | `'ranked-cap' \| 'virtualized'` | `'ranked-cap'` | `virtualized` renders with `@tanstack/react-virtual`, loaded only when used. |
 | `suggestOnEmptyFocus` | `boolean` | `false` | Open the popup on focus even when the input is empty. |
 | `trackRecentlyUsed` | `boolean` | `false` | Rank recently inserted items higher (memory only). |
 
@@ -81,10 +80,12 @@ import 'promql-validator/styles.css';
 |---|---|---|---|
 | `theme` | `'light' \| 'dark' \| 'system' \| ThemeOverrides` | `'light'` | See [Theming](./theming.md). |
 | `syntaxHighlighting` | `boolean` | `true` | Colours tokens and underlines diagnostics in place. |
+| `injectStyles` | `boolean` | `true` | Add the default stylesheet to the page automatically. Turn off if you import `promql-validator/styles.css` yourself. |
+| `styleNonce` | `string` | | CSP nonce for the injected `<style>` element. |
 | `diagnosticsDisplay` | `'below' \| 'inline' \| 'none'` | `'below'` | `below`: underlines plus a list under the input. `inline`: underlines only (messages are still read by screen readers). `none`: no diagnostics UI; build your own from `onValidation`. |
 | `maxVisibleDiagnostics` | `number` | `3` | The rest sit behind "Show N more". |
 | `showValidIndicator` | `boolean` | `false` | A check icon for complete, valid queries. |
-| `className`, `style` | | | Applied to the root element. |
+| `className`, `style` | | | Applied to the root element. `style` also accepts CSS variables such as `--promql-input-radius` (see [Theming](./theming.md)). |
 | `classNames` | `{ root, input, popup, item, itemSelected, diagnostics, diagnosticItem }` | | Extra classes per part. |
 | `iconMap` | `Record<string, ReactNode>` | | Custom icons for suggestions with an `icon` key. |
 

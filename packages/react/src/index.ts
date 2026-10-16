@@ -1,4 +1,8 @@
-export { PromQLInput } from './PromQLInput.js';
+import { PromQLInput } from './PromQLInput.js';
+
+export { PromQLInput };
+export default PromQLInput;
+export { promqlStylesheet } from './theme/inject-styles.js';
 export type {
   PromQLInputProps,
   PromQLInputHandle,

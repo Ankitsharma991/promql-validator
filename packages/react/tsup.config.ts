@@ -1,4 +1,26 @@
-import { defineConfig } from 'tsup';
+import { readFileSync } from 'node:fs';
+import { defineConfig, type Options } from 'tsup';
+
+// Lets `import css from './styles.css?inline'` bundle the stylesheet as a string, so the
+// component can inject its default styles without a separate CSS import.
+const inlineCss: NonNullable<Options['esbuildPlugins']>[number] = {
+  name: 'inline-css',
+  setup(build) {
+    // The resolved path keeps its `?inline` suffix so tsup's own `.css` handling never claims it.
+    build.onResolve({ filter: /\.css\?inline$/ }, (args) => ({
+      path: new URL(args.path, `file://${args.resolveDir}/`).pathname + '?inline',
+      namespace: 'inline-css',
+    }));
+    build.onLoad({ filter: /.*/, namespace: 'inline-css' }, (args) => ({
+      // Comments and indentation only; the published styles.css keeps them.
+      contents: readFileSync(args.path.replace(/\?inline$/, ''), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+      loader: 'text',
+    }));
+  },
+};
 
 export default defineConfig([
   {
@@ -15,6 +37,7 @@ export default defineConfig([
     treeshake: true,
     target: 'es2020',
     external: ['react', 'react-dom', '@tanstack/react-virtual'],
+    esbuildPlugins: [inlineCss],
     outExtension({ format }) {
       return { js: format === 'cjs' ? '.cjs' : '.mjs' };
     },

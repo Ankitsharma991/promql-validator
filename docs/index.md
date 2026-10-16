@@ -34,5 +34,5 @@ features:
     details: Built-in names from Prometheus, Kubernetes, OpenTelemetry, traces and logs, plus your own label values, metric catalogs and async backends. Plugins bundle a team's rules and vocabulary.
   - icon: 📦
     title: Small, honest bundles
-    details: Optional peer dependencies (virtualization, Monaco, CodeMirror) are real dynamic imports with zero cost when unused — verified in CI against committed size budgets, not just claimed.
+    details: Code you don't use isn't loaded. The virtualized list is a lazy chunk, Monaco and CodeMirror support live in separate packages, and every package has a size budget enforced in CI.
 ---

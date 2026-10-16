@@ -5,7 +5,6 @@
 ```tsx
 import { useState } from 'react';
 import { PromQLInput } from 'promql-validator';
-import 'promql-validator/styles.css';
 
 export function QueryBox() {
   const [query, setQuery] = useState('rate(http_requests_total[5m])');

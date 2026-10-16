@@ -6,8 +6,8 @@ import { SuggestionPopupFrame, itemClassName, type SuggestionPopupProps } from '
 
 /**
  * Opt-in virtualized suggestion list (`suggestionListMode="virtualized"`). It lives in its own
- * module and is loaded with `React.lazy` from `PromQLInput.tsx`, so the optional
- * `@tanstack/react-virtual` peer dependency only lands in a bundle that uses this mode. The
+ * module and is loaded with `React.lazy` from `PromQLInput.tsx`, so `@tanstack/react-virtual`
+ * is only fetched and run when this mode is actually used. The
  * default ranked-cap list already keeps the DOM small; virtualization is for hosts that want
  * users to scroll through far more than ~50 candidates.
  */

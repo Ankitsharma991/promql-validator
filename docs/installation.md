@@ -6,11 +6,15 @@
 npm install promql-validator
 ```
 
-Peer dependencies: `react >= 18`, `react-dom >= 18`. Import the stylesheet once, wherever you set up global styles:
+Peer dependencies: `react >= 18`, `react-dom >= 18`.
 
-```ts
-import 'promql-validator/styles.css';
+```tsx
+import PromQLInput from 'promql-validator';
+
+<PromQLInput value={query} onChange={setQuery} aria-label="PromQL query" />;
 ```
+
+There's no stylesheet to import: the component adds its default styles to the page on first render, before your own CSS, so your overrides always win. See [Theming](./theming.md) for customising, and for strict Content-Security-Policy setups.
 
 ## Validation / formatting only (no React)
 
@@ -27,7 +31,7 @@ npm install @promql-validator/core
 | Package | Contains | Peer dependencies |
 |---|---|---|
 | `promql-validator` | The React editor, everything from core, and the CLI | `react`, `react-dom` |
-| `@promql-validator/react` | `<PromQLInput/>` and the shared provider | `react`, `react-dom` (`@tanstack/react-virtual` optional) |
+| `@promql-validator/react` | `<PromQLInput/>` and the shared provider | `react`, `react-dom` |
 | `@promql-validator/core` | Parser, validator, formatter, suggestion engine | none |
 | `@promql-validator/monaco` | Monaco Editor language support | `monaco-editor` |
 | `@promql-validator/codemirror` | CodeMirror 6 language support | `@codemirror/*` |

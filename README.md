@@ -6,11 +6,12 @@ A PromQL editor and validator you can drop into any observability product: a Rea
 [![license](https://img.shields.io/npm/l/promql-validator.svg)](./LICENSE)
 
 ```tsx
-import { PromQLInput } from 'promql-validator';
-import 'promql-validator/styles.css';
+import PromQLInput from 'promql-validator';
 
 <PromQLInput value={query} onChange={setQuery} aria-label="PromQL query" />;
 ```
+
+One install, one import, one component. Default styles are included and can be changed through props, CSS variables or your own CSS.
 
 Every team building a metrics product ends up rebuilding the same query box: a text field, some regex highlighting, a hand-rolled suggestion list, and "validation" that really means "did the backend accept it". This project packages that whole stack, built on a hand-written, error-tolerant PromQL parser that understands half-typed queries.
 
@@ -76,7 +77,6 @@ The React packages need `react` and `react-dom` 18 or newer.
 ```tsx
 import { useState } from 'react';
 import { PromQLInput } from 'promql-validator';
-import 'promql-validator/styles.css';
 
 export function QueryEditor() {
   const [query, setQuery] = useState('sum by (job) (rate(http_requests_total[5m]))');

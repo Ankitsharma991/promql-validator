@@ -12,6 +12,7 @@ export function QueryEditor({ initialQuery }: { initialQuery: string }) {
   return (
     <div>
       <PromQLInput
+        injectStyles={false}
         value={query}
         onChange={setQuery}
         onValidation={setValidation}
