@@ -1,6 +1,6 @@
 {
   "name": "promql-validator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "PromQL editor and validator for React and the command line: syntax highlighting, validation, quick fixes and context-aware autocomplete.",
   "license": "MIT",
   "author": {
@@ -44,7 +44,7 @@
   },
   "dependencies": {
     "@promql-validator/core": "0.1.0",
-    "@promql-validator/react": "0.1.0"
+    "@promql-validator/react": "0.1.1"
   },
   "scripts": {
     "build": "tsup && cp ../react/dist/styles.css dist/styles.css",
