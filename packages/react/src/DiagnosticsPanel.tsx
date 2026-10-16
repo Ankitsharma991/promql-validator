@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getQuickFix, type Diagnostic, type QuickFix } from '@promql-validator/core';
+import { SEVERITY_ICONS } from './icons.js';
 
 export interface DiagnosticsPanelProps {
   diagnostics: Diagnostic[];
@@ -24,6 +25,7 @@ export function DiagnosticsPanel({ diagnostics, maxVisible, onSelect, onApplyFix
     <div className={`promql-diagnostics-panel ${classNames?.diagnostics ?? ''}`.trim()} role="alert" aria-live="polite">
       {visible.map((d, i) => {
         const fix = onApplyFix ? getQuickFix(d) : null;
+        const Icon = SEVERITY_ICONS[d.severity];
         return (
           // A plain (non-interactive) row containing two sibling buttons — never nest a
           // real <button> inside a role="button" element: nested interactive controls are
@@ -32,10 +34,16 @@ export function DiagnosticsPanel({ diagnostics, maxVisible, onSelect, onApplyFix
           // text, making the two indistinguishable to assistive tech and to accessible-name
           // queries alike).
           <div key={`${d.code}-${d.start}-${i}`} className={`promql-diagnostic-item ${classNames?.diagnosticItem ?? ''}`.trim()} data-severity={d.severity}>
+            <span className="promql-diagnostic-icon">
+              <Icon />
+            </span>
             <button type="button" className="promql-diagnostic-message" onClick={() => onSelect(d)}>
               <span>{d.message}</span>
-              {d.suggestion ? <span> — {d.suggestion}</span> : null}
+              {d.suggestion ? <span className="promql-diagnostic-suggestion"> — {d.suggestion}</span> : null}
             </button>
+            <span className="promql-diagnostic-position" title={`Line ${d.line}, column ${d.column}`}>
+              {d.line}:{d.column}
+            </span>
             {fix && (
               <button type="button" className="promql-diagnostic-fix" onClick={() => onApplyFix!(fix)}>
                 {fix.label}
@@ -46,7 +54,7 @@ export function DiagnosticsPanel({ diagnostics, maxVisible, onSelect, onApplyFix
       })}
       {!expanded && remaining > 0 && (
         <button type="button" className="promql-diagnostics-more" onClick={() => setExpanded(true)}>
-          +{remaining} more
+          Show {remaining} more
         </button>
       )}
     </div>

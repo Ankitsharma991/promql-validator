@@ -54,7 +54,8 @@ interface PromQLInputProps {
   // Styling
   className?: string;
   style?: React.CSSProperties;
-  theme?: 'light' | 'dark' | ThemeOverrides;
+  theme?: 'light' | 'dark' | 'system' | ThemeOverrides; // 'system' follows prefers-color-scheme
+  syntaxHighlighting?: boolean; // default: true — token colouring + in-place error underlines
   classNames?: PartialSlotClassNames;
   iconMap?: Record<string, React.ReactNode>;
 
@@ -99,4 +100,4 @@ ref.current?.getEditorState();        // { value, cursorPosition, selectionStart
 | `Ctrl/Cmd + Space` | Force-open suggestions, even for an empty query |
 | `Shift+Alt+F` / `Cmd+Shift+F` | Format |
 
-All are remappable/disableable via `keyboardConfig={{ Enter: false }}`.
+All are remappable/disableable via the `keyboardConfig` prop, e.g. `keyboardConfig={ { Enter: false } }` to disable the Enter-to-insert behavior.

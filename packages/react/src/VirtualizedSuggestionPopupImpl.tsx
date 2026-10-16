@@ -1,8 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Suggestion } from '@promql-validator/core';
 import { SuggestionItemContent } from './SuggestionItemContent.js';
-import type { SuggestionPopupProps } from './SuggestionPopup.js';
+import { SuggestionPopupFrame, itemClassName, type SuggestionPopupProps } from './SuggestionPopup.js';
 
 /**
  * Opt-in virtualized suggestion list (`suggestionListMode="virtualized"`). Lives in its own
@@ -12,53 +12,57 @@ import type { SuggestionPopupProps } from './SuggestionPopup.js';
  * default ranked-cap rendering already keeps the DOM small; this is only worth the extra
  * dependency when a host has a real need to let users browse far more than ~50 candidates).
  */
-function VirtualizedSuggestionPopupImpl({ id, suggestions, highlightedIndex, loading, asyncError, onHover, onSelect, iconMap, classNames }: SuggestionPopupProps) {
+function VirtualizedSuggestionPopupImpl(props: SuggestionPopupProps) {
+  const { id, suggestions, highlightedIndex, loading, onHover, onSelect, iconMap, classNames, matchText } = props;
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
     count: suggestions.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 48,
+    estimateSize: () => 30,
     overscan: 10,
   });
 
+  useEffect(() => {
+    if (highlightedIndex < suggestions.length) virtualizer.scrollToIndex(highlightedIndex, { align: 'auto' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightedIndex]);
+
+  const highlighted = suggestions[highlightedIndex];
+  const hasDocs = Boolean(highlighted?.description || highlighted?.detail);
+
   return (
-    <div
-      ref={parentRef}
-      id={id}
-      role="listbox"
-      className={`promql-suggestion-popup ${classNames?.popup ?? ''}`.trim()}
-      style={{ overflowY: 'auto' }}
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      {suggestions.length === 0 && !loading && <div className="promql-suggestion-empty">No matches</div>}
-      <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const s: Suggestion | undefined = suggestions[virtualRow.index];
-          if (!s) return null;
-          const selected = virtualRow.index === highlightedIndex;
-          return (
-            <div
-              key={virtualRow.key}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
-              id={`${id}-option-${virtualRow.index}`}
-              role="option"
-              aria-selected={selected}
-              data-selected={selected}
-              className={`promql-suggestion-item ${selected ? classNames?.itemSelected ?? '' : ''} ${classNames?.item ?? ''}`.trim()}
-              style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)` }}
-              onMouseEnter={() => onHover(virtualRow.index)}
-              onClick={() => onSelect(virtualRow.index)}
-            >
-              <SuggestionItemContent suggestion={s} iconMap={iconMap} />
-            </div>
-          );
-        })}
+    <SuggestionPopupFrame {...props}>
+      <div ref={parentRef} id={id} role="listbox" aria-label="Suggestions" aria-busy={loading || undefined} className="promql-suggestion-list">
+        <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const s: Suggestion | undefined = suggestions[virtualRow.index];
+            if (!s) return null;
+            const selected = virtualRow.index === highlightedIndex;
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                id={`${id}-option-${virtualRow.index}`}
+                role="option"
+                aria-selected={selected}
+                aria-describedby={selected && hasDocs ? `${id}-docs` : undefined}
+                data-selected={selected}
+                className={itemClassName(selected, classNames)}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)` }}
+                onMouseMove={() => {
+                  if (!selected) onHover(virtualRow.index);
+                }}
+                onClick={() => onSelect(virtualRow.index)}
+              >
+                <SuggestionItemContent suggestion={s} iconMap={iconMap} matchText={matchText} />
+              </div>
+            );
+          })}
+        </div>
       </div>
-      {loading && <div className="promql-suggestion-loading">Loading…</div>}
-      {asyncError ? <div className="promql-suggestion-loading">Couldn't load suggestions.</div> : null}
-    </div>
+    </SuggestionPopupFrame>
   );
 }
 

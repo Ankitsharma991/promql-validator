@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "An embeddable, framework-integrated (React-first) PromQL and monitoring-query editing toolkit — validation, context-aware autocomplete, and a themeable editor component.",
   "license": "MIT",
+  "author": "promql-validator contributors",
   "type": "module",
   "sideEffects": [
     "./dist/styles.css"
@@ -52,7 +53,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/promql-validator/promql-validator.git"
+    "url": "git+https://github.com/promql-validator/promql-validator.git",
+    "directory": "packages/meta"
   },
   "homepage": "https://github.com/promql-validator/promql-validator#readme",
   "bugs": {

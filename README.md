@@ -121,10 +121,11 @@ Both are thin adapters over `@promql-validator/core` — `monaco-editor`/the `@c
 ## Theming
 
 ```tsx
-<PromQLInput theme={{ base: 'dark', tokens: { '--promql-input-radius': '4px' } }} />
+<PromQLInput theme="system" />  {/* follows the OS light/dark preference */}
+<PromQLInput theme={{ base: 'dark', tokens: { '--promql-input-radius': '4px', '--promql-syntax-function': '#ff9830' } }} />
 ```
 
-Everything is CSS custom properties (`--promql-input-*`, `--promql-suggestion-*`, `--promql-diagnostics-*`) — no CSS-in-JS runtime, no forced brand colors. See `packages/react/src/theme/styles.css` for the full token list.
+Everything is CSS custom properties (`--promql-input-*`, `--promql-syntax-*`, `--promql-suggestion-*`, `--promql-kind-*`, `--promql-diagnostics-*`) — no CSS-in-JS runtime, no forced brand colors. See `packages/react/src/theme/styles.css` for the full token list.
 
 ## Architecture
 
@@ -179,6 +180,9 @@ packages/
   monaco/      @promql-validator/monaco      — Monaco Editor adapter
   codemirror/  @promql-validator/codemirror  — CodeMirror 6 adapter
 examples/
+  vite-react-ts/          full-featured demo — validation, dynamic + async suggestions, formatting, worker mode, Monaco + CodeMirror adapters
+  nextjs-app-router/       SSR-safety demo — Server Component page + Client Component editor
+  nextjs-pages-router/     SSR-safety demo — getStaticProps-seeded page
 docs/
 e2e/           Playwright end-to-end suite (against examples/vite-react-ts)
 scripts/       benchmark.mjs — real, reproducible performance numbers

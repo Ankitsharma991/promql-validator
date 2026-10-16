@@ -34,6 +34,17 @@ export interface GetSuggestionsOptions {
 const DEFAULT_MAX_SUGGESTIONS = 50;
 const DEFAULT_FUZZY_THRESHOLD = 500;
 
+/**
+ * Snippet inserted for a function/aggregation when its spec doesn't define one: the call's
+ * parentheses with the caret (`$0`) inside, plus a `[5m]` range for range-vector functions.
+ * Inserting a bare name instead leaves the user one stray keystroke away from silently
+ * gluing the next token onto it (e.g. `absent_over_time5m` — a valid, but wrong, metric name).
+ */
+function defaultCallSnippet(name: string, rangeVectorArg = false, noArgs = false): string {
+  if (noArgs) return `${name}()$0`;
+  return rangeVectorArg ? `${name}($0[5m])` : `${name}($0)`;
+}
+
 // Precomputed once at module load — immutable, shared across every component instance.
 const BUILTIN_FUNCTION_SUGGESTIONS: Suggestion[] = PROMQL_FUNCTIONS.map((f) => ({
   label: f.name,
@@ -41,7 +52,7 @@ const BUILTIN_FUNCTION_SUGGESTIONS: Suggestion[] = PROMQL_FUNCTIONS.map((f) => (
   category: 'promql-function',
   detail: f.detail,
   description: f.description,
-  insertText: f.insertText,
+  insertText: f.insertText ?? defaultCallSnippet(f.name, f.rangeVectorArg, f.maxArgs === 0),
 }));
 
 const BUILTIN_AGGREGATION_SUGGESTIONS: Suggestion[] = PROMQL_AGGREGATIONS.map((a) => ({
@@ -50,6 +61,7 @@ const BUILTIN_AGGREGATION_SUGGESTIONS: Suggestion[] = PROMQL_AGGREGATIONS.map((a
   category: 'aggregation',
   detail: a.detail,
   description: a.description,
+  insertText: defaultCallSnippet(a.name),
 }));
 
 const BUILTIN_OPERATOR_SUGGESTIONS: Suggestion[] = PROMQL_OPERATORS.filter((o) => o.category !== 'modifier').map((o) => ({

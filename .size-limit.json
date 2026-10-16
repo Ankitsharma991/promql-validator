@@ -1,0 +1,32 @@
+[
+  {
+    "name": "@promql-validator/core (ESM)",
+    "path": "packages/core/dist/index.mjs",
+    "limit": "25 KB",
+    "gzip": true
+  },
+  {
+    "name": "@promql-validator/react (ESM, excl. React/core peer deps)",
+    "path": "packages/react/dist/index.mjs",
+    "limit": "20 KB",
+    "gzip": true
+  },
+  {
+    "name": "@promql-validator/react styles.css",
+    "path": "packages/react/dist/styles.css",
+    "limit": "6 KB",
+    "gzip": true
+  },
+  {
+    "name": "@promql-validator/monaco (ESM)",
+    "path": "packages/monaco/dist/index.mjs",
+    "limit": "10 KB",
+    "gzip": true
+  },
+  {
+    "name": "@promql-validator/codemirror (ESM)",
+    "path": "packages/codemirror/dist/index.mjs",
+    "limit": "10 KB",
+    "gzip": true
+  }
+]

@@ -1,78 +1,256 @@
+/*
+ * promql-validator — default theme.
+ *
+ * Every colour, radius and size is a CSS custom property on `.promql-input-root`, so hosts can
+ * restyle the component through the `theme={{ tokens }}` prop or plain CSS without touching
+ * selectors. `data-theme` is 'light' | 'dark' | 'system' ('system' follows prefers-color-scheme).
+ */
+
 .promql-input-root {
+  /* ---- Input ---- */
   --promql-input-background: #ffffff;
-  --promql-input-text: #1a1a1a;
-  --promql-input-border: #d0d5dd;
-  --promql-input-border-focus: #4f7cff;
-  --promql-input-error: #d92d20;
-  --promql-input-warning: #b54708;
-  --promql-input-placeholder: #98a2b3;
+  --promql-input-text: #1f2328;
+  --promql-input-border: #d1d9e0;
+  --promql-input-border-hover: #b1bac4;
+  --promql-input-border-focus: #0969da;
+  --promql-input-focus-ring: rgba(9, 105, 218, 0.18);
+  --promql-input-error: #d1242f;
+  --promql-input-error-ring: rgba(209, 36, 47, 0.16);
+  --promql-input-warning: #9a6700;
+  --promql-input-info: #0969da;
+  --promql-input-success: #1a7f37;
+  --promql-input-placeholder: #818b98;
+  --promql-input-selection: rgba(9, 105, 218, 0.2);
   --promql-input-radius: 6px;
-  --promql-input-padding-x: 10px;
-  --promql-input-padding-y: 7px;
+  --promql-input-height: 36px;
+  --promql-input-padding-x: 12px;
+  --promql-input-padding-y: 8px;
   --promql-input-font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --promql-input-font-size: 13px;
+  --promql-input-line-height: 20px;
+  --promql-ui-font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --promql-ui-font-size: 12px;
 
+  /* ---- Syntax ---- */
+  --promql-syntax-metric: #1f2328;
+  --promql-syntax-function: #8250df;
+  --promql-syntax-keyword: #cf222e;
+  --promql-syntax-label: #953800;
+  --promql-syntax-string: #0a3069;
+  --promql-syntax-number: #0550ae;
+  --promql-syntax-duration: #0550ae;
+  --promql-syntax-operator: #cf222e;
+  --promql-syntax-punctuation: #59636e;
+  --promql-syntax-comment: #818b98;
+
+  /* ---- Suggestion popup ---- */
   --promql-suggestion-background: #ffffff;
-  --promql-suggestion-background-hover: #f2f4f7;
-  --promql-suggestion-background-selected: #eaf0ff;
-  --promql-suggestion-text: #1a1a1a;
-  --promql-suggestion-text-secondary: #667085;
-  --promql-suggestion-border: #eaecf0;
+  --promql-suggestion-background-hover: #f6f8fa;
+  --promql-suggestion-background-selected: #ddf4ff;
+  --promql-suggestion-text: #1f2328;
+  --promql-suggestion-text-secondary: #59636e;
+  --promql-suggestion-match: #0969da;
+  --promql-suggestion-border: #d1d9e0;
+  --promql-suggestion-divider: #e6eaef;
+  --promql-suggestion-surface: #f6f8fa;
+  --promql-suggestion-shadow: 0 1px 2px rgba(31, 35, 40, 0.06), 0 12px 32px -4px rgba(31, 35, 40, 0.18);
+  --promql-suggestion-max-height: 264px;
+  --promql-suggestion-item-height: 28px;
 
-  --promql-diagnostics-background: #fef3f2;
-  --promql-diagnostics-text: #7a271a;
+  /* Kind badge colours (suggestion icons). */
+  --promql-kind-function: #8250df;
+  --promql-kind-aggregation: #0969da;
+  --promql-kind-operator: #cf222e;
+  --promql-kind-keyword: #bc4c00;
+  --promql-kind-duration: #1b7c83;
+  --promql-kind-label: #953800;
+  --promql-kind-metric: #0550ae;
+  --promql-kind-value: #1a7f37;
+  --promql-kind-term: #59636e;
+  --promql-kind-custom: #59636e;
+
+  /* ---- Diagnostics ---- */
+  --promql-diagnostics-background: #fff5f5;
+  --promql-diagnostics-border: #ffcecb;
+  --promql-diagnostics-text: #82071e;
+  --promql-diagnostics-warning-background: #fff8c5;
+  --promql-diagnostics-warning-border: #f0d77a;
+  --promql-diagnostics-warning-text: #7d4e00;
+  --promql-diagnostics-info-background: #ddf4ff;
+  --promql-diagnostics-info-border: #a8d8ff;
+  --promql-diagnostics-info-text: #0a3069;
 
   position: relative;
-  font-family: var(--promql-input-font-family);
-  font-size: var(--promql-input-font-size);
+  font-family: var(--promql-ui-font-family);
+  font-size: var(--promql-ui-font-size);
+  color: var(--promql-input-text);
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Dark tokens — duplicated for data-theme='dark' and for data-theme='system' under a dark OS
+   preference (custom properties can't be shared across the two selectors any other way). */
 .promql-input-root[data-theme='dark'] {
-  --promql-input-background: #14161a;
-  --promql-input-text: #e6e6e6;
-  --promql-input-border: #33363d;
-  --promql-input-border-focus: #6d8dff;
-  --promql-input-error: #f97066;
-  --promql-input-warning: #fdb022;
-  --promql-input-placeholder: #667085;
+  --promql-input-background: #0d1117;
+  --promql-input-text: #e6edf3;
+  --promql-input-border: #30363d;
+  --promql-input-border-hover: #484f58;
+  --promql-input-border-focus: #4493f8;
+  --promql-input-focus-ring: rgba(68, 147, 248, 0.25);
+  --promql-input-error: #f85149;
+  --promql-input-error-ring: rgba(248, 81, 73, 0.22);
+  --promql-input-warning: #d29922;
+  --promql-input-info: #4493f8;
+  --promql-input-success: #3fb950;
+  --promql-input-placeholder: #6e7681;
+  --promql-input-selection: rgba(68, 147, 248, 0.3);
 
-  --promql-suggestion-background: #1c1f24;
-  --promql-suggestion-background-hover: #262a31;
-  --promql-suggestion-background-selected: #26314f;
-  --promql-suggestion-text: #e6e6e6;
-  --promql-suggestion-text-secondary: #9aa1ac;
-  --promql-suggestion-border: #2a2d34;
+  --promql-syntax-metric: #e6edf3;
+  --promql-syntax-function: #d2a8ff;
+  --promql-syntax-keyword: #ff7b72;
+  --promql-syntax-label: #ffa657;
+  --promql-syntax-string: #a5d6ff;
+  --promql-syntax-number: #79c0ff;
+  --promql-syntax-duration: #79c0ff;
+  --promql-syntax-operator: #ff7b72;
+  --promql-syntax-punctuation: #9198a1;
+  --promql-syntax-comment: #6e7681;
 
-  --promql-diagnostics-background: #2a1a17;
-  --promql-diagnostics-text: #ffb4a8;
+  --promql-suggestion-background: #151b23;
+  --promql-suggestion-background-hover: #1d242e;
+  --promql-suggestion-background-selected: #1c2d45;
+  --promql-suggestion-text: #e6edf3;
+  --promql-suggestion-text-secondary: #9198a1;
+  --promql-suggestion-match: #58a6ff;
+  --promql-suggestion-border: #3d444d;
+  --promql-suggestion-divider: #262c36;
+  --promql-suggestion-surface: #10151c;
+  --promql-suggestion-shadow: 0 1px 2px rgba(1, 4, 9, 0.4), 0 16px 40px -4px rgba(1, 4, 9, 0.7);
+
+  --promql-kind-function: #d2a8ff;
+  --promql-kind-aggregation: #58a6ff;
+  --promql-kind-operator: #ff7b72;
+  --promql-kind-keyword: #f0883e;
+  --promql-kind-duration: #39c5cf;
+  --promql-kind-label: #ffa657;
+  --promql-kind-metric: #79c0ff;
+  --promql-kind-value: #56d364;
+  --promql-kind-term: #9198a1;
+  --promql-kind-custom: #9198a1;
+
+  --promql-diagnostics-background: rgba(248, 81, 73, 0.1);
+  --promql-diagnostics-border: rgba(248, 81, 73, 0.4);
+  --promql-diagnostics-text: #ffa198;
+  --promql-diagnostics-warning-background: rgba(210, 153, 34, 0.1);
+  --promql-diagnostics-warning-border: rgba(210, 153, 34, 0.4);
+  --promql-diagnostics-warning-text: #e3b341;
+  --promql-diagnostics-info-background: rgba(56, 139, 253, 0.1);
+  --promql-diagnostics-info-border: rgba(56, 139, 253, 0.4);
+  --promql-diagnostics-info-text: #79c0ff;
+  color-scheme: dark;
 }
+
+@media (prefers-color-scheme: dark) {
+  .promql-input-root[data-theme='system'] {
+    --promql-input-background: #0d1117;
+    --promql-input-text: #e6edf3;
+    --promql-input-border: #30363d;
+    --promql-input-border-hover: #484f58;
+    --promql-input-border-focus: #4493f8;
+    --promql-input-focus-ring: rgba(68, 147, 248, 0.25);
+    --promql-input-error: #f85149;
+    --promql-input-error-ring: rgba(248, 81, 73, 0.22);
+    --promql-input-warning: #d29922;
+    --promql-input-info: #4493f8;
+    --promql-input-success: #3fb950;
+    --promql-input-placeholder: #6e7681;
+    --promql-input-selection: rgba(68, 147, 248, 0.3);
+
+    --promql-syntax-metric: #e6edf3;
+    --promql-syntax-function: #d2a8ff;
+    --promql-syntax-keyword: #ff7b72;
+    --promql-syntax-label: #ffa657;
+    --promql-syntax-string: #a5d6ff;
+    --promql-syntax-number: #79c0ff;
+    --promql-syntax-duration: #79c0ff;
+    --promql-syntax-operator: #ff7b72;
+    --promql-syntax-punctuation: #9198a1;
+    --promql-syntax-comment: #6e7681;
+
+    --promql-suggestion-background: #151b23;
+    --promql-suggestion-background-hover: #1d242e;
+    --promql-suggestion-background-selected: #1c2d45;
+    --promql-suggestion-text: #e6edf3;
+    --promql-suggestion-text-secondary: #9198a1;
+    --promql-suggestion-match: #58a6ff;
+    --promql-suggestion-border: #3d444d;
+    --promql-suggestion-divider: #262c36;
+    --promql-suggestion-surface: #10151c;
+    --promql-suggestion-shadow: 0 1px 2px rgba(1, 4, 9, 0.4), 0 16px 40px -4px rgba(1, 4, 9, 0.7);
+
+    --promql-kind-function: #d2a8ff;
+    --promql-kind-aggregation: #58a6ff;
+    --promql-kind-operator: #ff7b72;
+    --promql-kind-keyword: #f0883e;
+    --promql-kind-duration: #39c5cf;
+    --promql-kind-label: #ffa657;
+    --promql-kind-metric: #79c0ff;
+    --promql-kind-value: #56d364;
+    --promql-kind-term: #9198a1;
+    --promql-kind-custom: #9198a1;
+
+    --promql-diagnostics-background: rgba(248, 81, 73, 0.1);
+    --promql-diagnostics-border: rgba(248, 81, 73, 0.4);
+    --promql-diagnostics-text: #ffa198;
+    --promql-diagnostics-warning-background: rgba(210, 153, 34, 0.1);
+    --promql-diagnostics-warning-border: rgba(210, 153, 34, 0.4);
+    --promql-diagnostics-warning-text: #e3b341;
+    --promql-diagnostics-info-background: rgba(56, 139, 253, 0.1);
+    --promql-diagnostics-info-border: rgba(56, 139, 253, 0.4);
+    --promql-diagnostics-info-text: #79c0ff;
+    color-scheme: dark;
+  }
+}
+
+.promql-input-root *,
+.promql-input-root *::before,
+.promql-input-root *::after {
+  box-sizing: border-box;
+}
+
+/* ===================================================================== Input */
 
 .promql-input-box {
   display: flex;
   align-items: center;
+  gap: 8px;
   width: 100%;
-  box-sizing: border-box;
+  min-height: var(--promql-input-height);
   background: var(--promql-input-background);
   color: var(--promql-input-text);
   border: 1px solid var(--promql-input-border);
   border-radius: var(--promql-input-radius);
-  padding: var(--promql-input-padding-y) var(--promql-input-padding-x);
-  transition: border-color 0.1s ease;
+  padding: calc((var(--promql-input-height) - var(--promql-input-line-height) - 2px) / 2) var(--promql-input-padding-x);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .promql-input-box {
-    transition: none;
-  }
+.promql-input-box:hover {
+  border-color: var(--promql-input-border-hover);
 }
 
 .promql-input-box:focus-within {
   border-color: var(--promql-input-border-focus);
+  box-shadow: 0 0 0 3px var(--promql-input-focus-ring);
   outline: none;
 }
 
 .promql-input-box[data-severity='error'] {
   border-color: var(--promql-input-error);
+}
+
+.promql-input-box[data-severity='error']:focus-within {
+  box-shadow: 0 0 0 3px var(--promql-input-error-ring);
 }
 
 .promql-input-box[data-severity='warning'] {
@@ -81,149 +259,516 @@
 
 .promql-input-box[data-disabled='true'] {
   opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.promql-input-box[data-disabled='true']:hover {
+  border-color: var(--promql-input-border);
+}
+
+.promql-input-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* The input and its highlight overlay must share every metric that affects glyph placement. */
+.promql-input-textbox,
+.promql-input-highlight {
+  font-family: var(--promql-input-font-family);
+  font-size: var(--promql-input-font-size);
+  line-height: var(--promql-input-line-height);
+  letter-spacing: normal;
+  font-variant-ligatures: none;
+  font-feature-settings: normal;
+  tab-size: 2;
 }
 
 .promql-input-textbox {
-  flex: 1;
+  display: block;
+  width: 100%;
+  height: var(--promql-input-line-height);
+  margin: 0;
+  padding: 0;
   border: none;
   outline: none;
   background: transparent;
   color: inherit;
-  font: inherit;
-  min-width: 0;
+  caret-color: var(--promql-input-text);
+}
+
+.promql-input-textbox:disabled {
+  cursor: not-allowed;
 }
 
 .promql-input-textbox::placeholder {
   color: var(--promql-input-placeholder);
+  opacity: 1;
 }
+
+.promql-input-textbox::selection {
+  background: var(--promql-input-selection);
+}
+
+/* With highlighting on, the input's own glyphs are hidden and the overlay draws them. */
+.promql-input-field[data-highlighted] .promql-input-textbox {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.promql-input-field[data-highlighted] .promql-input-textbox::placeholder {
+  -webkit-text-fill-color: var(--promql-input-placeholder);
+}
+
+.promql-input-highlight {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+  color: var(--promql-input-text);
+}
+
+.promql-input-highlight-content {
+  display: inline-block;
+  will-change: transform;
+}
+
+.promql-input-highlight-content > span::before,
+.promql-suggestion-label-overlay > ::before {
+  content: attr(data-text);
+}
+
+.promql-tok-metric { color: var(--promql-syntax-metric); }
+.promql-tok-function { color: var(--promql-syntax-function); }
+.promql-tok-keyword { color: var(--promql-syntax-keyword); }
+.promql-tok-label { color: var(--promql-syntax-label); }
+.promql-tok-string { color: var(--promql-syntax-string); }
+.promql-tok-number { color: var(--promql-syntax-number); }
+.promql-tok-duration { color: var(--promql-syntax-duration); }
+.promql-tok-operator { color: var(--promql-syntax-operator); }
+.promql-tok-punctuation { color: var(--promql-syntax-punctuation); }
+.promql-tok-comment { color: var(--promql-syntax-comment); font-style: italic; }
+.promql-tok-invalid { color: var(--promql-input-error); }
+
+.promql-input-highlight-content > [data-severity]::before {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1px;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+.promql-input-highlight-content > [data-severity='error']::before {
+  text-decoration-color: var(--promql-input-error);
+}
+
+.promql-input-highlight-content > [data-severity='warning']::before {
+  text-decoration-color: var(--promql-input-warning);
+}
+
+.promql-input-highlight-content > [data-severity='info']::before {
+  text-decoration-color: var(--promql-input-info);
+  text-decoration-style: dotted;
+}
+
+.promql-valid-indicator {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--promql-input-success);
+}
+
+/* ===================================================================== Suggestions */
 
 .promql-suggestion-popup {
   position: absolute;
   z-index: 50;
-  margin-top: 4px;
-  min-width: 240px;
-  max-width: 480px;
-  max-height: 300px;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+  min-width: min(340px, 100%);
+  width: max-content;
+  max-width: min(560px, 100vw - 32px);
+  overflow: hidden;
+  background: var(--promql-suggestion-background);
+  color: var(--promql-suggestion-text);
+  border: 1px solid var(--promql-suggestion-border);
+  border-radius: calc(var(--promql-input-radius) + 2px);
+  box-shadow: var(--promql-suggestion-shadow);
+  animation: promql-popup-in 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes promql-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.99);
+  }
+}
+
+.promql-suggestion-list {
+  max-height: var(--promql-suggestion-max-height);
   overflow-y: auto;
   overscroll-behavior: contain;
-  background: var(--promql-suggestion-background);
-  border: 1px solid var(--promql-suggestion-border);
-  border-radius: var(--promql-input-radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   padding: 4px;
+  scroll-padding: 4px;
+  scrollbar-width: thin;
 }
 
 .promql-suggestion-item {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 6px 8px;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--promql-suggestion-item-height);
+  padding: 0 8px 0 6px;
   border-radius: 4px;
   cursor: pointer;
-  min-height: 32px;
-  justify-content: center;
-}
-
-.promql-suggestion-item[data-selected='true'] {
-  background: var(--promql-suggestion-background-selected);
+  user-select: none;
 }
 
 .promql-suggestion-item:hover {
   background: var(--promql-suggestion-background-hover);
 }
 
-.promql-suggestion-item-label-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  color: var(--promql-suggestion-text);
-  font-size: var(--promql-input-font-size);
+.promql-suggestion-item[data-selected='true'] {
+  background: var(--promql-suggestion-background-selected);
 }
 
-.promql-suggestion-item-category {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+.promql-suggestion-kind {
+  --promql-kind-color: var(--promql-kind-custom);
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-family: var(--promql-input-font-family);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--promql-kind-color);
+  background: color-mix(in srgb, var(--promql-kind-color) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--promql-kind-color) 22%, transparent);
+}
+
+.promql-suggestion-kind[data-custom-icon] {
+  background: none;
+  box-shadow: none;
+}
+
+[data-kind='function'] { --promql-kind-color: var(--promql-kind-function); }
+[data-kind='aggregation'] { --promql-kind-color: var(--promql-kind-aggregation); }
+[data-kind='operator'] { --promql-kind-color: var(--promql-kind-operator); }
+[data-kind='keyword'] { --promql-kind-color: var(--promql-kind-keyword); }
+[data-kind='duration'] { --promql-kind-color: var(--promql-kind-duration); }
+[data-kind='label'] { --promql-kind-color: var(--promql-kind-label); }
+[data-kind='metric'] { --promql-kind-color: var(--promql-kind-metric); }
+[data-kind='value'] { --promql-kind-color: var(--promql-kind-value); }
+[data-kind='term'] { --promql-kind-color: var(--promql-kind-term); }
+
+.promql-suggestion-label {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+  font-family: var(--promql-input-font-family);
+  font-size: var(--promql-input-font-size);
+  line-height: var(--promql-input-line-height);
+}
+
+.promql-suggestion-label[data-matched] .promql-suggestion-label-text {
+  color: transparent;
+}
+
+.promql-suggestion-label-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.promql-suggestion-label-overlay > mark {
+  background: none;
+  /* Labels are monospace, so bold glyphs keep their width and the overlay stays aligned. */
+  color: var(--promql-suggestion-match);
+  font-weight: 600;
+}
+
+.promql-suggestion-detail {
+  flex: 0 1 auto;
+  max-width: 50%;
+  margin-left: auto;
+  padding-left: 16px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--promql-ui-font-size);
   color: var(--promql-suggestion-text-secondary);
 }
 
-.promql-suggestion-item-description {
+.promql-suggestion-docs {
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--promql-suggestion-divider);
+  max-width: 560px;
+  line-height: 1.5;
+}
+
+.promql-suggestion-docs-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.promql-suggestion-docs-kind {
+  --promql-kind-color: var(--promql-kind-custom);
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--promql-kind-color);
+  background: color-mix(in srgb, var(--promql-kind-color) 12%, transparent);
+}
+
+.promql-suggestion-docs-signature {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--promql-input-font-family);
+  font-size: var(--promql-ui-font-size);
+  color: var(--promql-suggestion-text);
+}
+
+.promql-suggestion-docs-description {
+  margin: 4px 0 0;
+  font-size: var(--promql-ui-font-size);
+  color: var(--promql-suggestion-text-secondary);
+}
+
+.promql-suggestion-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 12px;
+  border-top: 1px solid var(--promql-suggestion-divider);
+  background: var(--promql-suggestion-surface);
   font-size: 11px;
   color: var(--promql-suggestion-text-secondary);
+  white-space: nowrap;
+}
+
+.promql-suggestion-footer kbd {
+  display: inline-block;
+  min-width: 16px;
+  margin-right: 2px;
+  padding: 0 4px;
+  border: 1px solid var(--promql-suggestion-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--promql-suggestion-background);
+  font-family: var(--promql-ui-font-family);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  color: var(--promql-suggestion-text-secondary);
+}
+
+.promql-suggestion-footer-count {
+  margin-left: auto;
 }
 
 .promql-suggestion-empty,
 .promql-suggestion-loading {
-  padding: 8px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: var(--promql-ui-font-size);
   color: var(--promql-suggestion-text-secondary);
 }
 
+.promql-suggestion-list + .promql-suggestion-loading {
+  border-top: 1px solid var(--promql-suggestion-divider);
+}
+
+.promql-suggestion-error {
+  color: var(--promql-input-error);
+}
+
+.promql-spinner {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: promql-spin 700ms linear infinite;
+}
+
+@keyframes promql-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===================================================================== Diagnostics */
+
 .promql-diagnostics-panel {
-  margin-top: 4px;
-  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: var(--promql-ui-font-size);
+  line-height: 1.45;
 }
 
 .promql-diagnostic-item {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid var(--promql-diagnostics-border);
+  border-radius: var(--promql-input-radius);
   background: var(--promql-diagnostics-background);
   color: var(--promql-diagnostics-text);
-  margin-bottom: 2px;
 }
 
 .promql-diagnostic-item[data-severity='warning'] {
-  color: var(--promql-input-warning);
-  background: transparent;
+  border-color: var(--promql-diagnostics-warning-border);
+  background: var(--promql-diagnostics-warning-background);
+  color: var(--promql-diagnostics-warning-text);
 }
 
 .promql-diagnostic-item[data-severity='info'] {
-  color: var(--promql-suggestion-text-secondary);
-  background: transparent;
+  border-color: var(--promql-diagnostics-info-border);
+  background: var(--promql-diagnostics-info-background);
+  color: var(--promql-diagnostics-info-text);
+}
+
+.promql-diagnostic-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .promql-diagnostic-message {
   flex: 1;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  background: transparent;
-  border: none;
+  min-width: 0;
+  margin: 0;
   padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: inherit;
   cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.promql-diagnostic-message:hover > span:first-child {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.promql-diagnostic-suggestion {
+  opacity: 0.8;
+}
+
+.promql-diagnostic-position {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-family: var(--promql-input-font-family);
+  font-size: 11px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
 }
 
 .promql-diagnostic-fix {
   flex-shrink: 0;
+  margin: -2px 0;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: var(--promql-input-background);
   font: inherit;
   font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid currentColor;
-  background: transparent;
+  font-weight: 500;
+  line-height: 18px;
   color: inherit;
   cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.promql-diagnostic-fix:hover {
+  background: color-mix(in srgb, currentColor 10%, var(--promql-input-background));
 }
 
 .promql-incomplete-hint {
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: 6px;
   color: var(--promql-suggestion-text-secondary);
 }
 
+.promql-incomplete-hint .promql-diagnostic-fix {
+  margin: 0;
+  color: var(--promql-input-info);
+}
+
 .promql-diagnostics-more {
-  display: block;
+  align-self: flex-start;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   font: inherit;
   font-size: 11px;
+  font-weight: 500;
   color: var(--promql-suggestion-text-secondary);
-  background: transparent;
-  border: none;
-  text-align: left;
-  padding: 2px 8px;
   cursor: pointer;
+}
+
+.promql-diagnostics-more:hover {
+  color: var(--promql-input-text);
+}
+
+/* ===================================================================== Shared */
+
+.promql-input-root button:focus-visible {
+  outline: 2px solid var(--promql-input-border-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promql-input-box,
+  .promql-diagnostic-fix {
+    transition: none;
+  }
+  .promql-suggestion-popup {
+    animation: none;
+  }
+  .promql-spinner {
+    animation-duration: 2s;
+  }
+}
+
+@media (forced-colors: active) {
+  .promql-input-field[data-highlighted] .promql-input-textbox {
+    color: CanvasText;
+    -webkit-text-fill-color: CanvasText;
+  }
+  .promql-input-highlight {
+    display: none;
+  }
+  .promql-suggestion-item[data-selected='true'] {
+    outline: 2px solid Highlight;
+  }
 }
 
 .promql-visually-hidden {

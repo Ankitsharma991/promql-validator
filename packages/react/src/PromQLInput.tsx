@@ -27,12 +27,14 @@ import {
   type PromQLPlugin,
 } from '@promql-validator/core';
 import { handleBackspace, handleTypedCharacter } from './bracket-pairing.js';
-import { useDebouncedValidation } from './hooks/useDebouncedValidation.js';
+import { useDebouncedValidationState } from './hooks/useDebouncedValidation.js';
 import { ValidationWorkerClient } from './worker-client.js';
 import { useSuggestionRegistry } from './SuggestionRegistry.js';
 import { useIsomorphicLayoutEffect } from './hooks/useIsomorphicLayoutEffect.js';
 import { useSuggestions } from './hooks/useSuggestions.js';
 import { SuggestionPopup } from './SuggestionPopup.js';
+import { QueryHighlight } from './QueryHighlight.js';
+import { CheckIcon } from './icons.js';
 
 // Loaded only when actually rendered (suggestionListMode="virtualized") — React.lazy's
 // factory isn't invoked until first mount, so this line alone never pulls the optional
@@ -127,7 +129,13 @@ export interface PromQLInputProps {
 
   className?: string;
   style?: React.CSSProperties;
+  /** 'light' (default), 'dark', 'system' (follows `prefers-color-scheme`), or token overrides. */
   theme?: Theme;
+  /**
+   * Colour the query by token type and underline diagnostics in place. Default: true. Set to
+   * false to render a plain text input (e.g. when the host applies its own text styling).
+   */
+  syntaxHighlighting?: boolean;
   classNames?: PartialSlotClassNames;
   iconMap?: Record<string, React.ReactNode>;
 
@@ -167,6 +175,8 @@ function useStableId(prefix: string, providedId: string | undefined): string {
   }
   return providedId ?? ref.current;
 }
+
+const NO_DIAGNOSTICS: Diagnostic[] = [];
 
 const BRACKET_KEYS = new Set(['(', ')', '{', '}', '[', ']', '"', "'", '`']);
 
@@ -227,6 +237,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     className,
     style,
     theme,
+    syntaxHighlighting = true,
     classNames,
     iconMap,
     diagnosticsDisplay = 'below',
@@ -252,6 +263,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   const [recentlyUsedValues, setRecentlyUsedValues] = useState<string[]>([]);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const highlightRef = useRef<HTMLSpanElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const popupRef = useRef<HTMLDivElement | null>(null);
   const composingRef = useRef(false);
@@ -270,6 +282,13 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     setHighlightedIndex(0);
   }
 
+  // The highlight overlay can't scroll itself, so it mirrors the input's horizontal scroll.
+  function syncHighlightScroll() {
+    const input = inputRef.current;
+    const overlay = highlightRef.current;
+    if (input && overlay) overlay.style.transform = `translateX(${-input.scrollLeft}px)`;
+  }
+
   // Restore the caret after a programmatic value change (React resets it otherwise).
   useIsomorphicLayoutEffect(() => {
     if (pendingSelectionRef.current && inputRef.current) {
@@ -281,6 +300,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
       }
       pendingSelectionRef.current = null;
     }
+    syncHighlightScroll();
   });
 
   const workerClientRef = useRef<ValidationWorkerClient | null>(null);
@@ -305,7 +325,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     [plugins, validators, customFunctions, disabledFunctions],
   );
 
-  const validationResult = useDebouncedValidation({
+  const { result: validationResult, validatedValue } = useDebouncedValidationState({
     value,
     debounceMs: validationDebounceMs,
     disableBuiltInValidation,
@@ -381,14 +401,28 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     (index: number) => {
       const s: Suggestion | undefined = results[index];
       if (!s) return;
-      const insertText = s.insertText ?? s.value;
       const prefixLen = context.tokenBeforeCursor.length;
       const start = selection.start - prefixLen;
-      const snippetIdx = insertText.indexOf('$0');
-      const finalText = snippetIdx === -1 ? insertText : insertText.slice(0, snippetIdx) + insertText.slice(snippetIdx + 2);
-      const newCursor = snippetIdx === -1 ? start + finalText.length : start + snippetIdx;
-      const newValue = value.slice(0, start) + finalText + value.slice(selection.end);
+      const rest = value.slice(selection.end);
+      let newValue: string;
+      let newCursor: number;
+      if (s.insertText && s.insertText.startsWith(`${s.value}(`) && rest.startsWith('(')) {
+        // Completing a name that already has its call parentheses (e.g. editing `rat|(x)`):
+        // insert just the name and step into the existing parens rather than doubling them.
+        newValue = value.slice(0, start) + s.value + rest;
+        newCursor = start + s.value.length + 1;
+      } else {
+        const insertText = s.insertText ?? s.value;
+        const snippetIdx = insertText.indexOf('$0');
+        const finalText = snippetIdx === -1 ? insertText : insertText.slice(0, snippetIdx) + insertText.slice(snippetIdx + 2);
+        newCursor = snippetIdx === -1 ? start + finalText.length : start + snippetIdx;
+        newValue = value.slice(0, start) + finalText + rest;
+      }
       commitValue(newValue, newCursor);
+      // Accepting a suggestion closes the popup until the user types again (or presses
+      // Ctrl/Cmd+Space) — otherwise a second Enter would silently append another suggestion.
+      setEscapeClosed(true);
+      setForcedOpen(false);
       inputRef.current?.focus();
       if (trackRecentlyUsed) {
         setRecentlyUsedValues((prev) => [s.value, ...prev.filter((v) => v !== s.value)].slice(0, 20));
@@ -441,6 +475,9 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
 
   function handleSelect() {
     syncSelectionFromDom();
+    syncHighlightScroll();
+    // Browsers may scroll a caret into view only after the select event has fired.
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(syncHighlightScroll);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -601,49 +638,60 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
 
   const incompleteBracketFix = validationResult ? getIncompleteBracketFix(validationResult, value) : null;
 
+  // Diagnostics are debounced; offsets from a stale result would underline the wrong text, so
+  // in-place underlines only show once validation has caught up with the current value.
+  const highlightDiagnostics = useMemo(
+    () => (validationResult && validatedValue === value ? validationResult.diagnostics : NO_DIAGNOSTICS),
+    [validationResult, validatedValue, value],
+  );
+
   const activeDescendant = showPopup && results[highlightedIndex] ? `${popupId}-option-${highlightedIndex}` : undefined;
 
   return (
     <div ref={rootRef} className={`promql-input-root ${classNames?.root ?? ''} ${className ?? ''}`.trim()} data-theme={dataTheme} style={{ ...themeStyle, ...style }}>
       <div className="promql-input-box" data-severity={severity} data-disabled={disabled}>
-        <input
-          ref={inputRef}
-          id={id}
-          name={name}
-          type="text"
-          role="combobox"
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          aria-expanded={showPopup}
-          aria-controls={popupId}
-          aria-autocomplete="list"
-          aria-activedescendant={activeDescendant}
-          aria-label={ariaLabel}
-          aria-disabled={disabled || undefined}
-          className={`promql-input-textbox ${classNames?.input ?? ''}`.trim()}
-          value={value}
-          placeholder={placeholder}
-          disabled={disabled}
-          readOnly={readOnly}
-          autoFocus={autoFocus}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onSelect={handleSelect}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onPaste={handlePaste}
-          onCompositionStart={() => {
-            composingRef.current = true;
-          }}
-          onCompositionEnd={() => {
-            composingRef.current = false;
-            syncSelectionFromDom();
-          }}
-        />
-        {showValidIndicator && severity === undefined && validationResult && validationResult.diagnostics.length === 0 && (
-          <span aria-hidden="true" title="Valid query">
-            ✓
+        <div className="promql-input-field" data-highlighted={syntaxHighlighting || undefined}>
+          {syntaxHighlighting && <QueryHighlight ref={highlightRef} value={value} diagnostics={highlightDiagnostics} />}
+          <input
+            ref={inputRef}
+            id={id}
+            name={name}
+            type="text"
+            role="combobox"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            aria-expanded={showPopup}
+            aria-controls={popupId}
+            aria-autocomplete="list"
+            aria-activedescendant={activeDescendant}
+            aria-label={ariaLabel}
+            aria-disabled={disabled || undefined}
+            className={`promql-input-textbox ${classNames?.input ?? ''}`.trim()}
+            value={value}
+            placeholder={placeholder}
+            disabled={disabled}
+            readOnly={readOnly}
+            autoFocus={autoFocus}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onSelect={handleSelect}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onPaste={handlePaste}
+            onScroll={syncHighlightScroll}
+            onCompositionStart={() => {
+              composingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              composingRef.current = false;
+              syncSelectionFromDom();
+            }}
+          />
+        </div>
+        {showValidIndicator && severity === undefined && validationResult && !validationResult.incomplete && validationResult.diagnostics.length === 0 && (
+          <span className="promql-valid-indicator" aria-hidden="true" title="Valid query">
+            <CheckIcon />
           </span>
         )}
       </div>
@@ -660,6 +708,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
             onSelect={insertSuggestion}
             iconMap={iconMap}
             classNames={classNames}
+            matchText={context.tokenBeforeCursor}
           />
         </Suspense>
       )}
@@ -675,6 +724,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
           onSelect={insertSuggestion}
           iconMap={iconMap}
           classNames={classNames}
+          matchText={context.tokenBeforeCursor}
         />
       )}
 

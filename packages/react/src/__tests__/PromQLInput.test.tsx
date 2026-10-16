@@ -108,6 +108,46 @@ describe('PromQLInput — autocomplete', () => {
     // 'rate' has a snippet insertText ('rate($0[5m])'); $0 is stripped and the cursor
     // placed there, matching the Suggestion.insertText snippet convention (Part 14.4).
     expect(input.value).toBe('rate([5m])');
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+  });
+
+  it('does not append another suggestion when Enter is pressed again after accepting one', async () => {
+    const onSubmit = vi.fn();
+    render(<PromQLInput defaultValue="" onSubmit={onSubmit} aria-label="query" />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    await userEvent.click(input);
+    await userEvent.type(input, 'absent_over_t');
+    await screen.findByRole('listbox');
+    await userEvent.keyboard('{Enter}');
+    expect(input.value).toBe('absent_over_time([5m])');
+    await userEvent.keyboard('{Enter}');
+    expect(input.value).toBe('absent_over_time([5m])');
+    expect(onSubmit).toHaveBeenCalledWith('absent_over_time([5m])');
+  });
+
+  it('reopens the popup once the user types after accepting a suggestion', async () => {
+    render(<PromQLInput defaultValue="" aria-label="query" />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    await userEvent.click(input);
+    await userEvent.type(input, 'cei');
+    await screen.findByRole('listbox');
+    await userEvent.keyboard('{Enter}');
+    expect(input.value).toBe('ceil()');
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+    await userEvent.type(input, 'up');
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
+  });
+
+  it('does not double the parentheses when completing a name that already has them', async () => {
+    render(<PromQLInput defaultValue="(up)" aria-label="query" />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    await userEvent.click(input);
+    input.setSelectionRange(0, 0);
+    await userEvent.type(input, 'cei', { initialSelectionStart: 0, initialSelectionEnd: 0 });
+    await screen.findByRole('listbox');
+    await userEvent.keyboard('{Enter}');
+    expect(input.value).toBe('ceil(up)');
+    expect(input.selectionStart).toBe(5);
   });
 
   it('closes the popup on Escape without modifying the value', async () => {

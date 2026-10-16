@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { PromQLInput, PromQLInputHandle, ValidationResult, Validator } from '@promql-validator/react';
 import { CLUSTERS, CONTAINERS, METRIC_NAMES, NAMESPACES, SERVICES, fetchLabelValuesDemo } from './demo-data';
+import { MonacoDemo } from './MonacoDemo';
+import { CodeMirrorDemo } from './CodeMirrorDemo';
 
 // A minimal custom validator, demonstrating the extension point (Part 28.1 of the PRD):
 // it receives the already-parsed AST plus the raw query and returns extra diagnostics
@@ -91,6 +93,18 @@ export default function App() {
         Built-in syntax/semantic validation runs off the main thread here — only verifiable in a real browser (jsdom has no <code>Worker</code>), which is exactly what this section is for.
       </p>
       <PromQLInput defaultValue="rate(x[5m)" useWorker theme={dark ? 'dark' : 'light'} aria-label="Worker-validated PromQL query" style={{ width: '100%' }} />
+
+      <h2 style={{ fontSize: 15, marginTop: 32 }}>Monaco Editor adapter</h2>
+      <p style={{ color: dark ? '#9aa1ac' : '#667085', fontSize: 13 }}>
+        <code>@promql-validator/monaco</code> — the same validation and suggestion engine registered as a real Monaco language, with live diagnostics markers.
+      </p>
+      <MonacoDemo dark={dark} />
+
+      <h2 style={{ fontSize: 15, marginTop: 32 }}>CodeMirror 6 adapter</h2>
+      <p style={{ color: dark ? '#9aa1ac' : '#667085', fontSize: 13 }}>
+        <code>@promql-validator/codemirror</code> — starts with an intentionally unclosed bracket to demonstrate live linting.
+      </p>
+      <CodeMirrorDemo />
     </div>
   );
 }

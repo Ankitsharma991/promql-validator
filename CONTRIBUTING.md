@@ -9,7 +9,7 @@ npm test            # runs the full vitest suite (core + react)
 npm run typecheck   # tsc --noEmit across every package
 ```
 
-This is an npm-workspaces monorepo (`packages/core`, `packages/react`, `packages/meta`) — no separate bootstrap step needed beyond `npm install` at the repo root.
+This is an npm-workspaces monorepo (`packages/core`, `packages/react`, `packages/meta`, `packages/monaco`, `packages/codemirror`) — no separate bootstrap step needed beyond `npm install` at the repo root.
 
 ## Adding a PromQL function to the built-in dictionary
 
@@ -29,6 +29,18 @@ Dictionary/grammar-coverage changes are tracked in `CHANGELOG-GRAMMAR.md`, separ
 - Strict TypeScript, no unexplained `any`.
 - `pipelines`/deterministic logic (`packages/core`) never imports from `packages/react`.
 - Prefer a small, well-tested internal implementation over adding a runtime dependency — see "Dependency Strategy" reasoning in the project's PRD.
+
+## Performance and bundle-size gates
+
+CI enforces two things beyond tests, both of which you can (and should) run locally before opening a PR:
+
+- **Bundle size** — `npm run build && npm run size` checks every published package's gzipped output against the budgets in `.size-limit.json`. If your change legitimately needs more room, raise the specific budget in that file as part of the PR and explain why in the description — don't raise it speculatively.
+- **Performance** — `npm run build --workspace=packages/core && npm run benchmark:check` compares validation/suggestion latency against the committed baseline in `scripts/benchmark-baseline.json`. A run is only flagged as a regression when it's both >5x slower *and* >1ms slower in absolute terms than the baseline, since sub-millisecond timings are naturally noisy — so a flagged run is a real signal, not jitter. If your change intentionally trades latency for something else (or is a genuine, verified perf improvement), update the baseline in the same PR:
+  ```bash
+  npm run build --workspace=packages/core
+  npm run benchmark:write-baseline
+  ```
+  and explain the tradeoff in the PR description. Never update the baseline just to make a failing check pass without understanding why it regressed first.
 
 ## Pull requests
 

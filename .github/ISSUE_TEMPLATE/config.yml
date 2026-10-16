@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/promql-validator/promql-validator/tree/main/docs
+    about: Check the docs before filing an issue — many questions are answered there.
+  - name: Security vulnerability
+    url: https://github.com/promql-validator/promql-validator/security/advisories/new
+    about: Please report security issues privately, not as a public issue — see SECURITY.md.

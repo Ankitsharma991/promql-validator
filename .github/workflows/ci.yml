@@ -41,6 +41,10 @@ jobs:
           npm pack --dry-run --workspace=packages/monaco
           npm pack --dry-run --workspace=packages/codemirror
 
+      - name: Bundle size budgets
+        if: matrix.node-version == 20
+        run: npm run size
+
       - name: Dependency audit
         run: npm audit --audit-level=critical || true
 
@@ -58,7 +62,7 @@ jobs:
       - run: npm run build --workspace=packages/core --workspace=packages/react
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Run E2E suite
         run: npm run e2e
@@ -71,6 +75,35 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build --workspace=packages/core --workspace=packages/react --workspace=packages/monaco --workspace=packages/codemirror
+
+      - name: Build example apps (verifies real consumer builds, incl. Next.js SSR/SSG safety)
+        run: npm run build:examples
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run docs:build
 
   benchmark:
     runs-on: ubuntu-latest
@@ -85,5 +118,11 @@ jobs:
       - run: npm ci
       - run: npm run build --workspace=packages/core
 
-      - name: Run performance benchmark (informational — not currently a hard regression gate)
-        run: npm run benchmark
+      - name: Check for performance regressions vs. committed baseline
+        run: npm run benchmark:check
+        # Regressions are flagged only when a benchmark is both >5x slower AND >1ms
+        # slower in absolute terms than scripts/benchmark-baseline.json — sub-millisecond
+        # timings are noisy on shared CI runners, so a purely relative or purely absolute
+        # threshold would either flap on jitter or miss real algorithmic regressions.
+        # To intentionally update the baseline after a verified, real perf change:
+        #   npm run build --workspace=packages/core && npm run benchmark:write-baseline

@@ -26,10 +26,16 @@ export interface UseDebouncedValidationArgs {
  * thread isn't the bottleneck at any realistic scale.
  */
 export function useDebouncedValidation(args: UseDebouncedValidationArgs): ValidationResult | null {
-  const [result, setResult] = useState<ValidationResult | null>(null);
+  return useDebouncedValidationState(args).result;
+}
+
+/** Like `useDebouncedValidation`, but also reports which `value` the result was computed for. */
+export function useDebouncedValidationState(args: UseDebouncedValidationArgs): { result: ValidationResult | null; validatedValue: string | null } {
+  const [state, setState] = useState<{ result: ValidationResult | null; validatedValue: string | null }>({ result: null, validatedValue: null });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { value, debounceMs, disableBuiltInValidation, validators, unknownFunctionSeverity, customFunctions, disabledFunctions, maxQueryLength, dialect, workerClient } = args;
+  const setResult = (result: ValidationResult) => setState({ result, validatedValue: value });
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -79,5 +85,5 @@ export function useDebouncedValidation(args: UseDebouncedValidationArgs): Valida
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, debounceMs, disableBuiltInValidation, unknownFunctionSeverity, maxQueryLength, dialect, workerClient]);
 
-  return result;
+  return state;
 }

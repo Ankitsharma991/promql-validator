@@ -14,3 +14,4 @@ playwright-report/
 blob-report/
 .next/
 next-env.d.ts
+docs/.vitepress/cache/

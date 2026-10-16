@@ -3,6 +3,19 @@
   "version": "0.1.0",
   "description": "A drop-in, accessible, themeable React PromQL editor with validation and context-aware autocomplete.",
   "license": "MIT",
+  "author": "promql-validator contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/promql-validator/promql-validator.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/promql-validator/promql-validator/tree/main/packages/react#readme",
+  "bugs": {
+    "url": "https://github.com/promql-validator/promql-validator/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "sideEffects": [
     "./dist/styles.css"

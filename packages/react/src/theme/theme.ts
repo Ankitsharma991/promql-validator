@@ -1,15 +1,18 @@
 import type { CSSProperties } from 'react';
 
+/** `'system'` follows the user's OS/browser colour scheme via `prefers-color-scheme`. */
+export type ThemeBase = 'light' | 'dark' | 'system';
+
 export interface ThemeOverrides {
-  base?: 'light' | 'dark';
+  base?: ThemeBase;
   tokens?: Partial<Record<string, string>>;
 }
 
-export type Theme = 'light' | 'dark' | ThemeOverrides;
+export type Theme = ThemeBase | ThemeOverrides;
 
-export function resolveTheme(theme: Theme | undefined): { dataTheme: 'light' | 'dark' | undefined; style: CSSProperties } {
-  if (!theme || theme === 'light') return { dataTheme: 'light', style: {} };
-  if (theme === 'dark') return { dataTheme: 'dark', style: {} };
+export function resolveTheme(theme: Theme | undefined): { dataTheme: ThemeBase; style: CSSProperties } {
+  if (!theme) return { dataTheme: 'light', style: {} };
+  if (typeof theme === 'string') return { dataTheme: theme, style: {} };
   const style: CSSProperties = {};
   if (theme.tokens) {
     for (const [key, value] of Object.entries(theme.tokens)) {

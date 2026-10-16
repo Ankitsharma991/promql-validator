@@ -3,6 +3,19 @@
   "version": "0.1.0",
   "description": "CodeMirror 6 language extension for promql-validator — syntax highlighting, context-aware completion, and live linting, powered by @promql-validator/core.",
   "license": "MIT",
+  "author": "promql-validator contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/promql-validator/promql-validator.git",
+    "directory": "packages/codemirror"
+  },
+  "homepage": "https://github.com/promql-validator/promql-validator/tree/main/packages/codemirror#readme",
+  "bugs": {
+    "url": "https://github.com/promql-validator/promql-validator/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.cjs",
