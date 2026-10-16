@@ -105,9 +105,10 @@ describe('PromQLInput — autocomplete', () => {
     await userEvent.type(input, 'rate');
     await screen.findByRole('listbox');
     await userEvent.keyboard('{Enter}');
-    // 'rate' has a snippet insertText ('rate($0[5m])'); $0 is stripped and the cursor
-    // placed there, matching the Suggestion.insertText snippet convention (Part 14.4).
-    expect(input.value).toBe('rate([5m])');
+    // 'rate' has a snippet insertText ('rate($0)'); $0 is stripped and the cursor placed
+    // there, matching the Suggestion.insertText snippet convention (Part 14.4).
+    expect(input.value).toBe('rate()');
+    expect(input.selectionStart).toBe(5);
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
   });
 
@@ -119,10 +120,10 @@ describe('PromQLInput — autocomplete', () => {
     await userEvent.type(input, 'absent_over_t');
     await screen.findByRole('listbox');
     await userEvent.keyboard('{Enter}');
-    expect(input.value).toBe('absent_over_time([5m])');
+    expect(input.value).toBe('absent_over_time()');
     await userEvent.keyboard('{Enter}');
-    expect(input.value).toBe('absent_over_time([5m])');
-    expect(onSubmit).toHaveBeenCalledWith('absent_over_time([5m])');
+    expect(input.value).toBe('absent_over_time()');
+    expect(onSubmit).toHaveBeenCalledWith('absent_over_time()');
   });
 
   it('reopens the popup once the user types after accepting a suggestion', async () => {
@@ -136,6 +137,54 @@ describe('PromQLInput — autocomplete', () => {
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
     await userEvent.type(input, 'up');
     expect(await screen.findByRole('listbox')).toBeInTheDocument();
+  });
+
+  it('adds a [5m] range when a metric is picked as the argument of a range function', async () => {
+    const metrics = [{ label: 'http_requests_total', value: 'http_requests_total', category: 'metric' }];
+    const onValidation = vi.fn();
+    render(<PromQLInput defaultValue="" suggestions={metrics} validationDebounceMs={10} onValidation={onValidation} aria-label="query" />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    await userEvent.click(input);
+    await userEvent.type(input, 'absent_over_t');
+    await screen.findByRole('listbox');
+    await userEvent.keyboard('{Enter}');
+    expect(input.value).toBe('absent_over_time()');
+    await userEvent.keyboard('http_req'); // types at the caret (inside the parens), unlike type()
+    await screen.findByRole('listbox');
+    await userEvent.keyboard('{Enter}');
+    expect(input.value).toBe('absent_over_time(http_requests_total[5m])');
+    expect(input.selectionStart).toBe('absent_over_time(http_requests_total[5m]'.length);
+    await waitFor(() => expect(onValidation).toHaveBeenLastCalledWith({ valid: true, incomplete: false, diagnostics: [] }));
+  });
+
+  it('does not add a range to a metric picked for an instant-vector argument', async () => {
+    const metrics = [{ label: 'http_requests_total', value: 'http_requests_total', category: 'metric' }];
+    render(<PromQLInput defaultValue="" suggestions={metrics} aria-label="query" />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    await userEvent.click(input);
+    await userEvent.type(input, 'cei');
+    await screen.findByRole('listbox');
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard('http_req'); // types at the caret (inside the parens), unlike type()
+    await screen.findByRole('listbox');
+    await userEvent.keyboard('{Enter}');
+    expect(input.value).toBe('ceil(http_requests_total)');
+  });
+
+  it('holds back a diagnostic on the token being completed until the popup closes', async () => {
+    const metrics = [{ label: 'http_requests_total', value: 'http_requests_total', category: 'metric' }];
+    const onValidation = vi.fn();
+    render(<PromQLInput defaultValue="" suggestions={metrics} validationDebounceMs={10} onValidation={onValidation} aria-label="query" />);
+    const input = screen.getByRole('combobox') as HTMLInputElement;
+    await userEvent.click(input);
+    await userEvent.type(input, 'rate(');
+    await userEvent.keyboard('http_req');
+    await screen.findByRole('listbox');
+    // `rate(http_req)` is (momentarily) a range-vector type error: reported, but not shown.
+    await waitFor(() => expect(onValidation).toHaveBeenLastCalledWith(expect.objectContaining({ valid: false })));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/range vector/);
   });
 
   it('does not double the parentheses when completing a name that already has them', async () => {

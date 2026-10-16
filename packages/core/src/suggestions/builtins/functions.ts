@@ -4,8 +4,10 @@ export interface FunctionSpec {
   minArgs: number;
   /** maximum allowed argument count (Infinity for variadic) */
   maxArgs: number;
-  /** true when the function's first (or only) vector argument must be a range vector, e.g. rate(v[5m]) */
+  /** true when one of the function's arguments must be a range vector, e.g. rate(v[5m]) */
   rangeVectorArg?: boolean;
+  /** Index of the range-vector argument when `rangeVectorArg` is set. Default: 0. */
+  rangeVectorArgIndex?: number;
   detail: string;
   description: string;
   insertText?: string;
@@ -41,9 +43,9 @@ export const PROMQL_FUNCTIONS: FunctionSpec[] = [
   { name: 'double_exponential_smoothing', minArgs: 3, maxArgs: 3, rangeVectorArg: true, detail: 'double_exponential_smoothing(v range-vector, sf scalar, tf scalar)', description: 'Produces a smoothed value for time series based on the range in v.' },
   { name: 'hour', minArgs: 0, maxArgs: 1, detail: 'hour(v=vector(time()) instant-vector)', description: 'Returns the hour of the day for each of the given times in UTC.' },
   { name: 'idelta', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'idelta(v range-vector)', description: 'Calculates the difference between the last two samples in the range vector.' },
-  { name: 'increase', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'increase(v range-vector)', description: 'Calculates the increase in the time series over a range, extrapolated to cover the full range.', insertText: 'increase($0[5m])' },
+  { name: 'increase', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'increase(v range-vector)', description: 'Calculates the increase in the time series over a range, extrapolated to cover the full range.', insertText: 'increase($0)' },
   { name: 'info', minArgs: 1, maxArgs: 2, detail: 'info(v instant-vector, [dataLabelSelector instant-vector])', description: 'Finds related info metric series and adds their identifying labels to the results.' },
-  { name: 'irate', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'irate(v range-vector)', description: 'Calculates the per-second instant rate of increase using the last two data points.', insertText: 'irate($0[5m])' },
+  { name: 'irate', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'irate(v range-vector)', description: 'Calculates the per-second instant rate of increase using the last two data points.', insertText: 'irate($0)' },
   { name: 'label_join', minArgs: 4, maxArgs: Infinity, detail: 'label_join(v instant-vector, dst_label, separator, src_label_1, ...)', description: 'Joins values of several source labels into a destination label using a separator.' },
   { name: 'label_replace', minArgs: 5, maxArgs: 5, detail: 'label_replace(v instant-vector, dst_label, replacement, src_label, regex)', description: 'Matches a regex against a source label and replaces/creates a destination label.' },
   { name: 'ln', minArgs: 1, maxArgs: 1, detail: 'ln(v instant-vector)', description: 'Calculates the natural logarithm for all elements in v.' },
@@ -53,7 +55,7 @@ export const PROMQL_FUNCTIONS: FunctionSpec[] = [
   { name: 'minute', minArgs: 0, maxArgs: 1, detail: 'minute(v=vector(time()) instant-vector)', description: 'Returns the minute of the hour for each of the given times in UTC.' },
   { name: 'month', minArgs: 0, maxArgs: 1, detail: 'month(v=vector(time()) instant-vector)', description: 'Returns the month of the year for each of the given times in UTC.' },
   { name: 'predict_linear', minArgs: 2, maxArgs: 2, rangeVectorArg: true, detail: 'predict_linear(v range-vector, t scalar)', description: 'Predicts the value of a time series t seconds from now, based on simple linear regression.' },
-  { name: 'rate', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'rate(v range-vector)', description: 'Calculates the per-second average rate of increase of a counter over a range.', insertText: 'rate($0[5m])' },
+  { name: 'rate', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'rate(v range-vector)', description: 'Calculates the per-second average rate of increase of a counter over a range.', insertText: 'rate($0)' },
   { name: 'resets', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'resets(v range-vector)', description: 'Returns the number of counter resets within the provided time range.' },
   { name: 'round', minArgs: 1, maxArgs: 2, detail: 'round(v instant-vector, to_nearest=1 scalar)', description: 'Rounds sample values to the nearest integer, or to the nearest multiple of to_nearest.' },
   { name: 'scalar', minArgs: 1, maxArgs: 1, detail: 'scalar(v instant-vector)', description: "Given a single-element input vector, returns the sample value as a scalar. Returns NaN otherwise." },
@@ -84,12 +86,12 @@ export const PROMQL_FUNCTIONS: FunctionSpec[] = [
   { name: 'atanh', minArgs: 1, maxArgs: 1, detail: 'atanh(v instant-vector)', description: 'Calculates the inverse hyperbolic tangent of all elements in v.' },
 
   // *_over_time family
-  { name: 'avg_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'avg_over_time(v range-vector)', description: 'The average value of all points in the specified range.', insertText: 'avg_over_time($0[5m])' },
+  { name: 'avg_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'avg_over_time(v range-vector)', description: 'The average value of all points in the specified range.', insertText: 'avg_over_time($0)' },
   { name: 'min_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'min_over_time(v range-vector)', description: 'The minimum value of all points in the specified range.' },
   { name: 'max_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'max_over_time(v range-vector)', description: 'The maximum value of all points in the specified range.' },
   { name: 'sum_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'sum_over_time(v range-vector)', description: 'The sum of all values in the specified range.' },
   { name: 'count_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'count_over_time(v range-vector)', description: 'The count of all values in the specified range.' },
-  { name: 'quantile_over_time', minArgs: 2, maxArgs: 2, rangeVectorArg: true, detail: 'quantile_over_time(φ scalar, v range-vector)', description: 'The φ-quantile of all values in the specified range.' },
+  { name: 'quantile_over_time', minArgs: 2, maxArgs: 2, rangeVectorArg: true, rangeVectorArgIndex: 1, detail: 'quantile_over_time(φ scalar, v range-vector)', description: 'The φ-quantile of all values in the specified range.' },
   { name: 'stddev_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'stddev_over_time(v range-vector)', description: 'The population standard deviation of the values in the specified range.' },
   { name: 'stdvar_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'stdvar_over_time(v range-vector)', description: 'The population standard variance of the values in the specified range.' },
   { name: 'last_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'last_over_time(v range-vector)', description: 'The most recent point value in the specified range.' },

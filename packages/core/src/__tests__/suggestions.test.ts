@@ -192,7 +192,8 @@ describe('built-in call snippets', () => {
     expect(calls.length).toBeGreaterThan(0);
     for (const s of calls) expect(s.insertText, s.value).toMatch(new RegExp(`^${s.value}\\(`));
     const find = (q: string, v: string) => getSuggestions(q, q.length).find((s) => s.value === v)?.insertText;
-    expect(find('absent_over_t', 'absent_over_time')).toBe('absent_over_time($0[5m])');
+    expect(find('absent_over_t', 'absent_over_time')).toBe('absent_over_time($0)');
+    expect(find('rat', 'rate')).toBe('rate($0)');
     expect(find('cei', 'ceil')).toBe('ceil($0)');
     expect(find('su', 'sum')).toBe('sum($0)');
     expect(find('tim', 'time')).toBe('time()$0');

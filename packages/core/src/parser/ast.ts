@@ -75,6 +75,8 @@ export interface Call extends Span {
   args: Expr[];
   /** true while the `(` has not yet been closed (mid-typing) */
   openParen?: boolean;
+  /** true when the argument list has an unfilled slot — `f()`, `f(a, )` — i.e. mid-typing */
+  emptyArgSlot?: boolean;
 }
 
 export type GroupingMode = 'by' | 'without';
@@ -87,6 +89,10 @@ export interface AggregateExpr extends Span {
   param: Expr | null; // e.g. the k in topk(k, ...) or the quantile in quantile(q, ...)
   grouping: { mode: GroupingMode; labels: string[]; span: Span } | null;
   openParen?: boolean;
+  /** Number of (non-placeholder) arguments written between the parentheses, including any beyond the expected ones. */
+  argCount?: number;
+  /** true when the argument list has an unfilled slot — `sum()`, `topk(5, )` — i.e. mid-typing */
+  emptyArgSlot?: boolean;
 }
 
 export interface VectorMatching extends Span {

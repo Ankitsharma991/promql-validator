@@ -48,8 +48,33 @@ function findUnclosedOpener(query: string): TokenType | null {
  * diagnostic at all (Part 29), so it can't be reached through this diagnostic-anchored API;
  * use `getIncompleteBracketFix()` for that case instead.
  */
-export function getQuickFix(diagnostic: Diagnostic): QuickFix | null {
+// A plain vector selector: optional metric name, optional `{...}` matchers, nothing else.
+// Only these can take a `[5m]` range suffix and stay a valid range-vector selector.
+const PLAIN_SELECTOR = /^(?:[a-zA-Z_:][a-zA-Z0-9_:]*)?(?:\{(?:[^{}"]|"(?:[^"\\]|\\.)*")*\})?$/;
+
+/**
+ * @param query The query the diagnostic was produced for. Optional for backwards
+ *   compatibility; fixes that depend on the surrounding text (e.g. adding a range to a
+ *   selector) are only offered when it is provided.
+ */
+export function getQuickFix(diagnostic: Diagnostic, query?: string): QuickFix | null {
   switch (diagnostic.code) {
+    case DiagnosticCode.WrongArgType: {
+      // `rate(metric)` → `rate(metric[5m])`. Offered only for a plain selector argument,
+      // where appending a range is always valid; anything else (`rate(sum(x))`, a selector
+      // with `offset`) needs a subquery or restructuring, which isn't safely inferable.
+      if (query === undefined) return null;
+      const { start, end } = diagnostic;
+      const arg = query.slice(start, end).trim();
+      if (!arg || !PLAIN_SELECTOR.test(arg)) return null;
+      return {
+        label: "Add range '[5m]'",
+        apply(q: string) {
+          const value = q.slice(0, end) + '[5m]' + q.slice(end);
+          return { value, cursorPosition: end + 4 };
+        },
+      };
+    }
     case DiagnosticCode.MissingLabelValue: {
       // `diagnostic.start` (not `.end`) — this diagnostic's span covers whatever token
       // was found instead of a value (e.g. the `}` or `,` right after `=`), so `.start` is

@@ -21,6 +21,7 @@ import {
   UnaryExpr,
   VectorMatching,
   VectorSelector,
+  isSynthetic,
 } from './ast.js';
 
 export interface ParseResult {
@@ -379,6 +380,18 @@ export class Parser {
       case TokenType.Comma:
         // Don't consume: an enclosing construct is waiting for exactly this token.
         return this.synthetic();
+      case TokenType.LBracket: {
+        // A range/subquery suffix with nothing in front of it — typically `rate([5m])`.
+        this.addDiagnostic(
+          'error',
+          DiagnosticCode.UnexpectedToken,
+          `A range like '[5m]' must follow a metric selector or expression.`,
+          tok,
+          `Write the selector first, e.g. 'metric_name[5m]'.`,
+        );
+        this.advance();
+        return this.synthetic();
+      }
       default: {
         this.addDiagnostic('error', DiagnosticCode.UnexpectedToken, `Unexpected token '${tok.value || tok.type}'.`, tok);
         this.advance();
@@ -392,12 +405,16 @@ export class Parser {
     this.advance();
     const args: Expr[] = [];
     let openParen = true;
+    let trailingComma = false;
     if (!this.check(TokenType.RParen) && !this.atEOF()) {
       for (;;) {
         args.push(this.parseExpr(0));
         if (this.check(TokenType.Comma)) {
           this.advance();
-          if (this.check(TokenType.RParen)) break; // trailing comma tolerated while typing
+          if (this.check(TokenType.RParen)) {
+            trailingComma = true; // tolerated while typing: `f(a, |)`
+            break;
+          }
           continue;
         }
         break;
@@ -412,6 +429,7 @@ export class Parser {
       funcNameSpan: { start: nameTok.start, end: nameTok.end },
       args,
       openParen,
+      emptyArgSlot: args.length === 0 || trailingComma || args.some(isSynthetic),
       start: nameTok.start,
       end,
     };
@@ -427,15 +445,21 @@ export class Parser {
     let openParen = false;
     const args: Expr[] = [];
     let closeEnd = opTok.end;
+    let hasArgList = false;
+    let trailingComma = false;
     if (this.check(TokenType.LParen)) {
       const openTok = this.advance();
       openParen = true;
+      hasArgList = true;
       if (!this.check(TokenType.RParen) && !this.atEOF()) {
         for (;;) {
           args.push(this.parseExpr(0));
           if (this.check(TokenType.Comma)) {
             this.advance();
-            if (this.check(TokenType.RParen)) break;
+            if (this.check(TokenType.RParen)) {
+              trailingComma = true;
+              break;
+            }
             continue;
           }
           break;
@@ -473,6 +497,7 @@ export class Parser {
       param,
       grouping,
       openParen,
+      ...(hasArgList ? { argCount: args.filter((a) => !isSynthetic(a)).length, emptyArgSlot: args.length === 0 || trailingComma || args.some(isSynthetic) } : {}),
       start: opTok.start,
       end: closeEnd,
     };
@@ -648,7 +673,11 @@ export class Parser {
   private parseBracketPostfix(expr: Expr): Expr {
     if (!this.check(TokenType.LBracket)) return expr;
     const openTok = this.advance();
-    const range = this.parseDurationValue();
+    // `metric[]` is what auto-closed brackets leave mid-typing (`metric[` + `]`): an unfilled
+    // slot, reported as incomplete rather than as a missing-duration error.
+    const emptyRange = this.check(TokenType.RBracket);
+    if (emptyRange) this.incomplete = true;
+    const range = emptyRange ? null : this.parseDurationValue();
     let step: Duration | null = null;
     let isSubquery = false;
     if (this.check(TokenType.Colon)) {

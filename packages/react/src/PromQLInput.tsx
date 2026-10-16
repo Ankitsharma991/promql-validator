@@ -35,6 +35,7 @@ import { useSuggestions } from './hooks/useSuggestions.js';
 import { SuggestionPopup } from './SuggestionPopup.js';
 import { QueryHighlight } from './QueryHighlight.js';
 import { CheckIcon } from './icons.js';
+import { isMetricNameSuggestion, isRangeVectorArgSlot } from './range-slot.js';
 
 // Loaded only when actually rendered (suggestionListMode="virtualized") — React.lazy's
 // factory isn't invoked until first mount, so this line alone never pulls the optional
@@ -411,6 +412,12 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
         // insert just the name and step into the existing parens rather than doubling them.
         newValue = value.slice(0, start) + s.value + rest;
         newCursor = start + s.value.length + 1;
+      } else if (isMetricNameSuggestion(s) && isRangeVectorArgSlot(value, start, selection.end, dialect)) {
+        // A metric picked as the argument of a range function (`rate(|)`) gets a range, so
+        // the result is complete and valid (`rate(metric[5m])`) rather than a type error.
+        const text = `${s.insertText ?? s.value}[5m]`;
+        newValue = value.slice(0, start) + text + rest;
+        newCursor = start + text.length;
       } else {
         const insertText = s.insertText ?? s.value;
         const snippetIdx = insertText.indexOf('$0');
@@ -429,7 +436,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [results, context.tokenBeforeCursor, selection.start, selection.end, value, trackRecentlyUsed],
+    [results, context.tokenBeforeCursor, selection.start, selection.end, value, trackRecentlyUsed, dialect],
   );
 
   const doFormat = useCallback(() => {
@@ -615,12 +622,23 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, []);
 
+  // While the user is completing a token (popup open), a diagnostic touching the caret is
+  // about text they haven't finished typing — `rate(http_req|)` is momentarily an instant
+  // vector. Those are held back from the UI until the popup closes; `onValidation` and
+  // `getValidationResult()` still report the full result.
+  const displayedDiagnostics = useMemo(() => {
+    const all = validationResult?.diagnostics ?? NO_DIAGNOSTICS;
+    if (!showPopup) return all;
+    const caret = selection.start;
+    const kept = all.filter((d) => caret < d.start || caret > d.end);
+    return kept.length === all.length ? all : kept;
+  }, [validationResult, showPopup, selection.start]);
+
   const severity: 'error' | 'warning' | undefined = useMemo(() => {
-    if (!validationResult) return undefined;
-    if (validationResult.diagnostics.some((d) => d.severity === 'error')) return 'error';
-    if (validationResult.diagnostics.some((d) => d.severity === 'warning')) return 'warning';
+    if (displayedDiagnostics.some((d) => d.severity === 'error')) return 'error';
+    if (displayedDiagnostics.some((d) => d.severity === 'warning')) return 'warning';
     return undefined;
-  }, [validationResult]);
+  }, [displayedDiagnostics]);
 
   const { dataTheme, style: themeStyle } = resolveTheme(theme);
 
@@ -636,13 +654,23 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     inputRef.current?.focus();
   }
 
+  // Diagnostic-anchored fixes carry offsets into the text they were computed for; with
+  // debounced validation that can briefly lag the live value, so they only apply once
+  // validation has caught up (otherwise the edit could land in the wrong place).
+  function applyDiagnosticFix(fix: QuickFix) {
+    if (validatedValue !== value) return;
+    const applied = fix.apply(value);
+    commitValue(applied.value, applied.cursorPosition);
+    inputRef.current?.focus();
+  }
+
   const incompleteBracketFix = validationResult ? getIncompleteBracketFix(validationResult, value) : null;
 
   // Diagnostics are debounced; offsets from a stale result would underline the wrong text, so
   // in-place underlines only show once validation has caught up with the current value.
   const highlightDiagnostics = useMemo(
-    () => (validationResult && validatedValue === value ? validationResult.diagnostics : NO_DIAGNOSTICS),
-    [validationResult, validatedValue, value],
+    () => (validationResult && validatedValue === value ? displayedDiagnostics : NO_DIAGNOSTICS),
+    [validationResult, validatedValue, value, displayedDiagnostics],
   );
 
   const activeDescendant = showPopup && results[highlightedIndex] ? `${popupId}-option-${highlightedIndex}` : undefined;
@@ -733,7 +761,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
       </span>
 
       {diagnosticsDisplay !== 'none' && validationResult && (
-        <DiagnosticsPanel diagnostics={validationResult.diagnostics} maxVisible={maxVisibleDiagnostics} onSelect={handleDiagnosticSelect} onApplyFix={applyFix} classNames={classNames} />
+        <DiagnosticsPanel query={validatedValue ?? value} diagnostics={displayedDiagnostics} maxVisible={maxVisibleDiagnostics} onSelect={handleDiagnosticSelect} onApplyFix={applyDiagnosticFix} classNames={classNames} />
       )}
       {diagnosticsDisplay !== 'none' && incompleteBracketFix && (
         <div className="promql-incomplete-hint">

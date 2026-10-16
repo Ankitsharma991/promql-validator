@@ -3,6 +3,8 @@ import { getQuickFix, type Diagnostic, type QuickFix } from '@promql-validator/c
 import { SEVERITY_ICONS } from './icons.js';
 
 export interface DiagnosticsPanelProps {
+  /** The query the diagnostics were computed for (enables text-dependent quick fixes). */
+  query?: string;
   diagnostics: Diagnostic[];
   maxVisible: number;
   onSelect: (diagnostic: Diagnostic) => void;
@@ -13,7 +15,7 @@ export interface DiagnosticsPanelProps {
 
 const SEVERITY_ORDER: Record<Diagnostic['severity'], number> = { error: 0, warning: 1, info: 2 };
 
-export function DiagnosticsPanel({ diagnostics, maxVisible, onSelect, onApplyFix, classNames }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({ query, diagnostics, maxVisible, onSelect, onApplyFix, classNames }: DiagnosticsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   if (diagnostics.length === 0) return null;
 
@@ -24,7 +26,7 @@ export function DiagnosticsPanel({ diagnostics, maxVisible, onSelect, onApplyFix
   return (
     <div className={`promql-diagnostics-panel ${classNames?.diagnostics ?? ''}`.trim()} role="alert" aria-live="polite">
       {visible.map((d, i) => {
-        const fix = onApplyFix ? getQuickFix(d) : null;
+        const fix = onApplyFix ? getQuickFix(d, query) : null;
         const Icon = SEVERITY_ICONS[d.severity];
         return (
           // A plain (non-interactive) row containing two sibling buttons — never nest a

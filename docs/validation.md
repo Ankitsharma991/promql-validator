@@ -48,6 +48,16 @@ validatePromQL('rate(');
 
 `rate(`, `sum(`, `metric{`, `metric{label=`, `sum by (` are structurally-incomplete-but-expected mid-typing states — the parser has explicit error-recovery productions for exactly this (see [Architecture](./architecture.md)), and reports `incomplete: true` with **no error diagnostic** for the incompleteness itself. A genuinely malformed query (`rate(metric[5m)`, mismatched bracket types) still reports real `error` diagnostics.
 
+The same applies to the *unfilled slots* that auto-closed brackets leave behind — `rate()`, `sum()`, `topk(5, )`, `histogram_quantile(0.95, )`, `metric[]` — since `rate()` is exactly what typing `rate(` produces in an editor that closes brackets. Functions that take no arguments (`time()`, `pi()`) are complete. Before treating a query as final (e.g. on submit), check **both** flags: `valid && !incomplete`.
+
+## One error per mistake
+
+After the first syntax error the parser is recovering, and anything it reports afterwards is almost always a consequence of that one mistake. Like Prometheus, `validatePromQL` reports only the **first** syntax error (non-error syntax findings such as duplicate-matcher warnings are kept), and runs semantic checks only once the syntax is clean.
+
+## Quick fixes
+
+`getQuickFix(diagnostic, query?)` returns a one-click fix when one can be derived with confidence. Pass the query the diagnostic was computed for to enable fixes that depend on the surrounding text — e.g. `rate(up)` → *Add range '[5m]'* → `rate(up[5m])`, offered only when the argument is a plain selector.
+
 ## Custom validators
 
 ```ts

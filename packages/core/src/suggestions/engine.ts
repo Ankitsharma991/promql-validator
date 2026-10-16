@@ -36,13 +36,13 @@ const DEFAULT_FUZZY_THRESHOLD = 500;
 
 /**
  * Snippet inserted for a function/aggregation when its spec doesn't define one: the call's
- * parentheses with the caret (`$0`) inside, plus a `[5m]` range for range-vector functions.
- * Inserting a bare name instead leaves the user one stray keystroke away from silently
- * gluing the next token onto it (e.g. `absent_over_time5m` — a valid, but wrong, metric name).
+ * parentheses with the caret (`$0`) inside — never a pre-filled argument such as `[5m]`,
+ * which would leave the query invalid until the user typed *before* it. Inserting a bare
+ * name instead leaves the user one stray keystroke away from silently gluing the next token
+ * onto it (e.g. `absent_over_time5m` — a valid, but wrong, metric name).
  */
-function defaultCallSnippet(name: string, rangeVectorArg = false, noArgs = false): string {
-  if (noArgs) return `${name}()$0`;
-  return rangeVectorArg ? `${name}($0[5m])` : `${name}($0)`;
+function defaultCallSnippet(name: string, noArgs = false): string {
+  return noArgs ? `${name}()$0` : `${name}($0)`;
 }
 
 // Precomputed once at module load — immutable, shared across every component instance.
@@ -52,7 +52,7 @@ const BUILTIN_FUNCTION_SUGGESTIONS: Suggestion[] = PROMQL_FUNCTIONS.map((f) => (
   category: 'promql-function',
   detail: f.detail,
   description: f.description,
-  insertText: f.insertText ?? defaultCallSnippet(f.name, f.rangeVectorArg, f.maxArgs === 0),
+  insertText: f.insertText ?? defaultCallSnippet(f.name, f.maxArgs === 0),
 }));
 
 const BUILTIN_AGGREGATION_SUGGESTIONS: Suggestion[] = PROMQL_AGGREGATIONS.map((a) => ({

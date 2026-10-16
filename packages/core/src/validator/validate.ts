@@ -2,7 +2,7 @@ import { Expr } from '../parser/ast.js';
 import { parsePromQL } from '../parser/parser.js';
 import { expandWithTemplates } from '../dialects/with-templates.js';
 import { Diagnostic, ValidationResult } from './diagnostics.js';
-import { SemanticValidationOptions, validateSemantics, DEFAULT_SEMANTIC_OPTIONS } from './semantic.js';
+import { SemanticValidationOptions, analyzeSemantics, DEFAULT_SEMANTIC_OPTIONS } from './semantic.js';
 
 export type Validator = (ast: Expr | null, query: string) => Diagnostic[];
 
@@ -35,6 +35,35 @@ export class UnsupportedDialectError extends Error {
     super(`dialect: '${dialect}' is not supported — expected 'promql' or 'metricsql'.`);
     this.name = 'UnsupportedDialectError';
   }
+}
+
+/** 1-based line/column of `offset` in `text`. */
+function positionAt(text: string, offset: number): { line: number; column: number } {
+  let line = 1;
+  let lineStart = 0;
+  const end = Math.min(Math.max(offset, 0), text.length);
+  for (let i = 0; i < end; i++) {
+    if (text.charCodeAt(i) === 10 /* \n */) {
+      line++;
+      lineStart = i + 1;
+    }
+  }
+  return { line, column: end - lineStart + 1 };
+}
+
+/**
+ * After the first syntax error the parser is recovering, and the errors that follow are
+ * almost always consequences of that one mistake (`rate([5m])` would otherwise report five).
+ * Like Prometheus, report only the first syntax error — plus any non-error syntax findings
+ * (e.g. duplicate-matcher warnings), which stay meaningful.
+ */
+function collapseSyntaxErrors(diagnostics: Diagnostic[]): Diagnostic[] {
+  let first: Diagnostic | undefined;
+  for (const d of diagnostics) {
+    if (d.severity === 'error' && (!first || d.start < first.start)) first = d;
+  }
+  if (!first) return diagnostics;
+  return diagnostics.filter((d) => d === first || d.severity !== 'error');
 }
 
 export function validatePromQL(query: string, options: ValidationOptions = {}): ValidationResult {
@@ -84,7 +113,10 @@ export function validatePromQL(query: string, options: ValidationOptions = {}): 
     }
   }
 
-  const { ast, diagnostics: syntaxDiagnostics, incomplete } = parsePromQL(textToParse, dialect);
+  const parsed = parsePromQL(textToParse, dialect);
+  const { ast } = parsed;
+  const syntaxDiagnostics = collapseSyntaxErrors(parsed.diagnostics);
+  const hasSyntaxError = syntaxDiagnostics.some((d) => d.severity === 'error');
 
   const semanticOptions: SemanticValidationOptions = {
     unknownFunctionSeverity: options.unknownFunctionSeverity ?? DEFAULT_SEMANTIC_OPTIONS.unknownFunctionSeverity,
@@ -92,12 +124,16 @@ export function validatePromQL(query: string, options: ValidationOptions = {}): 
     disabledFunctions: options.disabledFunctions,
     dialect,
   };
-  const semanticDiagnostics = withDiagnostics.length > 0 ? [] : validateSemantics(ast, semanticOptions);
+  // Semantic checks on an error-recovered AST only produce follow-on noise, so they run
+  // only once the syntax is clean.
+  const semantic = withDiagnostics.length > 0 || hasSyntaxError ? { diagnostics: [], incomplete: false } : analyzeSemantics(ast, semanticOptions);
+  // Semantic diagnostics carry offsets only; give them real line/column positions.
+  const semanticDiagnostics = semantic.diagnostics.map((d) => ({ ...d, ...positionAt(textToParse, d.start) }));
 
   const customDiagnostics = (options.validators ?? []).flatMap((v) => v(withDiagnostics.length > 0 ? null : ast, query));
 
   const diagnostics = [...withDiagnostics, ...syntaxDiagnostics, ...semanticDiagnostics, ...customDiagnostics];
   const valid = !diagnostics.some((d) => d.severity === 'error');
 
-  return { valid, diagnostics, incomplete: withDiagnostics.length > 0 ? false : incomplete };
+  return { valid, diagnostics, incomplete: withDiagnostics.length > 0 ? false : parsed.incomplete || semantic.incomplete };
 }

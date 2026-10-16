@@ -8,8 +8,8 @@ Stable, documented, versioned — branch on `code`, never on `message` text (mes
 | `PQ_UNEXPECTED_TOKEN` | error | A token appeared where the grammar didn't expect one |
 | `PQ_UNEXPECTED_EOF` | error | Input ended where a primary expression was expected (surfaced only when *not* a recognized incomplete-typing shape) |
 | `PQ_INVALID_DURATION` | error | A range/offset/subquery duration is missing its unit, or isn't a recognized duration |
-| `PQ_WRONG_ARITY` | error | A function was called with the wrong number of arguments |
-| `PQ_WRONG_ARG_TYPE` | error | e.g. `rate()` called with an instant vector instead of a range vector |
+| `PQ_WRONG_ARITY` | error | A function or aggregation was called with the wrong number of arguments (an unfilled slot such as `rate()` is reported as `incomplete` instead) |
+| `PQ_WRONG_ARG_TYPE` | error | e.g. `rate()` called with an instant vector instead of a range vector. Quick fix: *Add range '[5m]'* for a plain selector |
 | `PQ_UNKNOWN_FUNCTION` | warning (configurable) | An unrecognized function name — see `unknownFunctionSeverity` |
 | `PQ_UNKNOWN_AGGREGATION` | error | Reserved for future use |
 | `PQ_MISSING_LABEL_VALUE` | error | A label matcher's `=`/`!=`/`=~`/`!~` has no quoted value following it |

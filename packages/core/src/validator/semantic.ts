@@ -56,8 +56,22 @@ function closestFunctionName(name: string, known: Iterable<string>): string | un
   return best;
 }
 
+/** Aggregations whose first argument is a parameter (`topk(k, v)`), so they take two arguments. */
+const PARAM_FIRST_AGGREGATIONS = new Set(['topk', 'bottomk', 'quantile', 'limitk', 'limit_ratio', 'count_values']);
+
 export function validateSemantics(ast: Expr, options: SemanticValidationOptions = DEFAULT_SEMANTIC_OPTIONS): Diagnostic[] {
+  return analyzeSemantics(ast, options).diagnostics;
+}
+
+/**
+ * Semantic pass over a (syntactically clean) AST. Besides diagnostics it reports
+ * `incomplete` for calls with an unfilled argument slot — `rate()`, `sum()`,
+ * `histogram_quantile(0.9, )` — which is exactly what auto-closed brackets leave behind
+ * mid-typing, so they're treated like `rate(` (incomplete, no error) rather than as errors.
+ */
+export function analyzeSemantics(ast: Expr, options: SemanticValidationOptions = DEFAULT_SEMANTIC_OPTIONS): { diagnostics: Diagnostic[]; incomplete: boolean } {
   const diagnostics: Diagnostic[] = [];
+  let incomplete = false;
   const dialect = options.dialect ?? 'promql';
   const known = new Set(PROMQL_FUNCTION_NAMES);
   if (dialect === 'metricsql') for (const f of METRICSQL_FUNCTION_NAMES) known.add(f);
@@ -104,13 +118,16 @@ export function validateSemantics(ast: Expr, options: SemanticValidationOptions 
           // Skip arity/type checks while the call is still open mid-typing (`rate(` with no
           // closing paren yet) — the argument list isn't finalized, so it isn't an error yet.
           if (spec && !node.openParen) {
-            const argc = node.args.length;
-            if (argc < spec.minArgs || argc > spec.maxArgs) {
+            const argc = node.args.filter((a) => !isSynthetic(a)).length;
+            if (argc < spec.minArgs && node.emptyArgSlot) {
+              incomplete = true;
+            } else if (argc < spec.minArgs || argc > spec.maxArgs) {
               const expected = spec.minArgs === spec.maxArgs ? `exactly ${spec.minArgs}` : spec.maxArgs === Infinity ? `at least ${spec.minArgs}` : `between ${spec.minArgs} and ${spec.maxArgs}`;
               push('error', DiagnosticCode.WrongArity, `Function '${node.funcName}' expects ${expected} argument(s), got ${argc}.`, node);
             }
-            if (spec.rangeVectorArg && node.args[0] && !isSynthetic(node.args[0]) && !isRangeVectorLike(node.args[0]!)) {
-              push('error', DiagnosticCode.WrongArgType, `Function '${node.funcName}' expects a range vector (e.g. 'metric[5m]') as its argument, got an instant vector.`, node.args[0]!);
+            const rangeArg = spec.rangeVectorArg ? node.args[spec.rangeVectorArgIndex ?? 0] : undefined;
+            if (rangeArg && !isSynthetic(rangeArg) && !isRangeVectorLike(rangeArg)) {
+              push('error', DiagnosticCode.WrongArgType, `Function '${node.funcName}' expects a range vector (e.g. 'metric[5m]') as its argument, got an instant vector.`, rangeArg);
             }
           }
         }
@@ -118,6 +135,17 @@ export function validateSemantics(ast: Expr, options: SemanticValidationOptions 
         break;
       }
       case 'AggregateExpr': {
+        if (node.argCount !== undefined && !node.openParen) {
+          const expected = PARAM_FIRST_AGGREGATIONS.has(node.op) ? 2 : 1;
+          const argc = node.argCount;
+          if (argc < expected && node.emptyArgSlot) {
+            incomplete = true;
+          } else if (argc !== expected && dialect === 'promql') {
+            // MetricsQL relaxes several aggregation signatures, so this is PromQL-only.
+            const shape = expected === 2 ? `a parameter and a vector, e.g. '${node.op}(5, metric)'` : `exactly 1 argument`;
+            push('error', DiagnosticCode.WrongArity, `Aggregation '${node.op}' expects ${shape}, got ${argc} argument(s).`, node);
+          }
+        }
         if (node.expr) visit(node.expr);
         if (node.param) visit(node.param);
         break;
@@ -150,5 +178,5 @@ export function validateSemantics(ast: Expr, options: SemanticValidationOptions 
   }
 
   visit(ast);
-  return diagnostics;
+  return { diagnostics, incomplete };
 }
