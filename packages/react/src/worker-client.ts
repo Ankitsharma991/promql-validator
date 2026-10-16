@@ -4,10 +4,7 @@ import type { WorkerRequest, WorkerResponse } from './worker-protocol.js';
 /**
  * Main-thread controller for the optional validation worker. Never constructed at module
  * scope or during render — only lazily, inside an effect, and only when a consumer opts in
- * via `useWorker` (Part 88: "do not force every simple query through a worker if the
- * overhead is larger than the computation" — our own benchmarks show the main thread is not
- * the bottleneck at any realistic scale, so this exists as a genuinely working opt-in for
- * hosts with unusual constraints, not a default).
+ * via `useWorker`.
  */
 export class ValidationWorkerClient {
   private worker: Worker | null = null;

@@ -1,48 +1,65 @@
 # Architecture
 
 ```
-promql-validator            (meta package — re-exports @promql-validator/react)
-@promql-validator/core      (parser, validator, formatter, suggestion engine — zero deps, no DOM/React)
-@promql-validator/react     (<PromQLInput/>, popup, theming, keyboard/a11y — React peer dep)
+promql-validator               React editor + core + CLI (re-exports @promql-validator/react)
+@promql-validator/core         lexer, parser, validator, formatter, suggestion engine   (no dependencies, no DOM)
+@promql-validator/react        <PromQLInput/>, suggestion popup, diagnostics, theming   (peer: react)
+@promql-validator/monaco       Monaco language: highlighting, completion, markers       (peer: monaco-editor)
+@promql-validator/codemirror   CodeMirror 6 language, completion, lint                  (peer: @codemirror/*)
 ```
 
-`@promql-validator/react` depends on `@promql-validator/core` (kept external in the published bundle, never inlined — verified by inspecting the built output) — never the other way around. Core is usable standalone in Node, the browser, or (architecturally) inside a future Monaco/CodeMirror adapter, since it never assumes a React event model.
+Every editor surface calls the same core functions (`validatePromQL`, `getSuggestions`, `extractContext`, `tokenize`), so there is exactly one grammar and one ranking implementation. The adapters only translate between core types and their editor's APIs, and a test checks that each one produces the same suggestions and diagnostics as core.
 
-## Why a hand-written parser, not regex or a parser-generator
+`@promql-validator/core` is kept external in every adapter's bundle rather than inlined, so an app that uses two surfaces ships one copy of it.
 
-Regex-based "validators" can't correctly handle nested brackets, string escaping, or arity checks, and produce false positives/negatives on valid-but-unusual queries. A generic parser-generator (PEG.js, chevrotain) adds a runtime dependency and generated-code bundle weight for a grammar that's a well-known, bounded EBNF. A WASM port of Prometheus's own Go parser adds hundreds of KB and gives no first-class error-recovery hooks. The hand-written recursive-descent / precedence-climbing parser (`packages/core/src/parser/parser.ts`, ~700 lines) returns **partial ASTs with recovery nodes** for exactly the mid-typing states a real editor needs (`rate(`, `metric{`, `metric{label=`) and keeps the core bundle at ~18.5KB min+gzip.
+## Why a hand-written parser
 
-## Error-tolerant parsing (the product-critical bit)
+- Regex "validators" can't handle nesting, string escapes or arity, and they give false results on valid but unusual queries.
+- A parser generator adds a runtime dependency and generated code for a grammar that is small and well known.
+- A WASM build of Prometheus' Go parser is hundreds of kilobytes and has no hooks for error recovery.
 
-The parser distinguishes two failure modes at every point it needs more input than is available:
+The lexer (`packages/core/src/lexer/tokenizer.ts`) and the recursive-descent / precedence-climbing parser (`packages/core/src/parser/parser.ts`) together are about 1,300 lines. They return a partial AST for half-typed input, which is what makes in-editor autocomplete and quiet validation possible.
 
-- **Structurally incomplete-and-expected** (ran out of input, not a wrong token): synthesizes a placeholder node, sets `incomplete: true`, emits **no error diagnostic** for the gap itself.
-- **Genuinely invalid** (wrong token, wrong bracket type, mismatched grammar): a real `error` diagnostic.
+## Error-tolerant parsing
 
-This is what lets autocomplete stay useful *while the user is still typing* rather than only working on syntactically-complete queries — see `ContextExtractor` (`packages/core/src/suggestions/context-extractor.ts`), which classifies the cursor's grammatical position via a lightweight bracket-stack walk over the token stream (robust to malformed input by construction, since it never requires a fully-valid AST).
+Whenever the parser needs input it doesn't have, it decides which of two cases it's in:
+
+- **Incomplete**: the input simply ran out (`rate(`, `up{job="`), or a slot that auto-closed brackets leave behind is still empty (`rate()`, `x[]`). It inserts a placeholder node, sets `incomplete: true` and reports nothing.
+- **Invalid**: there's a wrong token, a mismatched bracket or an impossible construct. It reports an `error`.
+
+After the first syntax error, every later error is almost always a consequence of it, so only the first is reported. Semantic checks (`validator/semantic.ts`) run only on a syntactically clean AST.
 
 ## Suggestion pipeline
 
 ```
 query + cursor
-  → extractContext()          — classify astContext (label-name, label-value, function-arg, ...)
-  → collect candidates          — built-ins (module-level, indexed once) + static + dynamic (indexed if >500 items) + async (already-resolved)
-  → context-filter               — e.g. never suggest functions inside a label-value position
-  → rank                         — exact > prefix > fuzzy(bounded) > context-relevance > priority > source-specificity
-  → dedupe by (value, category)
-  → cap at maxSuggestions
+  → extractContext()     where is the cursor? label-name, label-value, function-arg, duration, …
+  → collect candidates   built-ins (indexed once per page) + static + dynamic (indexed above 500 items) + async results
+  → filter by context    e.g. never a function inside a label value
+  → rank                 exact > prefix > fuzzy (bounded) > context boost > priority > source
+  → dedupe and cap       by (value, category); maxSuggestions
 ```
 
-Async provider orchestration (debounce, `AbortController`, request-sequence staleness guard, opt-in LRU cache) lives in `AsyncSuggestionController` — framework-agnostic; the React `useSuggestions` hook only owns re-render wiring around it.
+Async providers run through `AsyncSuggestionController` (debounce, `AbortController`, request sequencing to drop stale responses, in-memory LRU cache, output sanitising). The React component, both adapters and your own code can use it.
+
+## The React editor
+
+- A native `<input role="combobox">` holds the text, the caret, selection, IME and undo.
+- A highlight layer (`QueryHighlight`) sits exactly on top with `pointer-events: none` and `aria-hidden`. It draws the tokens and underlines with CSS `attr()` content, so the query text exists in the DOM only once.
+- `useDebouncedValidation` and `useSuggestions` own the timing. Diagnostics are only drawn once validation has caught up with the current text, so underlines never land on the wrong characters.
 
 ## Repository layout
 
 ```
 packages/
-  core/    @promql-validator/core
-  react/   @promql-validator/react
-  meta/    promql-validator
-examples/
-docs/
-scripts/benchmark.mjs
+  core/         @promql-validator/core
+    conformance/promql.json   accept/reject corpus checked against Prometheus
+  react/        @promql-validator/react
+  meta/         promql-validator (+ CLI)
+  monaco/       @promql-validator/monaco
+  codemirror/   @promql-validator/codemirror
+examples/       Vite + React, Next.js App Router, Next.js Pages Router
+e2e/            Playwright tests against the Vite example
+docs/           this documentation (VitePress)
+scripts/        benchmark.mjs and its committed baseline
 ```

@@ -1,16 +1,11 @@
 import type { FunctionSpec } from '../suggestions/builtins/functions.js';
 
 /**
- * MetricsQL (VictoriaMetrics' PromQL superset) function extensions beyond stable Prometheus
- * PromQL. This is a **conservative, best-effort subset** of the well-documented, widely-used
- * additions — not a verified-against-live-documentation exhaustive list (VictoriaMetrics
- * ships on the order of 100 MetricsQL-specific functions, and this package has no live
- * access to cross-check every signature). Per this project's correctness-first principle,
- * we'd rather under-cover a dialect than fabricate function signatures we can't verify:
- * an *unrecognized* MetricsQL function still degrades gracefully to a warning (same
- * `unknownFunctionSeverity` mechanism as PromQL, Part 13.2), never a hard failure — so a gap
- * here is a missing autocomplete/arity-check entry, not a false validation error.
- * Corrections and additions are welcome (see CONTRIBUTING.md).
+ * MetricsQL (VictoriaMetrics' PromQL superset) functions beyond stable PromQL. VictoriaMetrics
+ * ships around a hundred extra functions; this list covers the commonly used ones. A function
+ * that isn't listed is reported through `unknownFunctionSeverity` (a warning by default),
+ * never as a hard error, so a gap here means a missing completion or arity check rather than
+ * a false validation failure. Additions are welcome (see CONTRIBUTING.md).
  */
 export const METRICSQL_FUNCTIONS: FunctionSpec[] = [
   { name: 'histogram_quantiles', minArgs: 4, maxArgs: Infinity, detail: 'histogram_quantiles("phiLabel", phi1, phi2, ..., buckets)', description: 'Calculates the given list of φ-quantiles over a histogram in one call, labeling each result.' },

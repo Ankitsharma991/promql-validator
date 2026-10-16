@@ -32,7 +32,7 @@ export class AsyncSuggestionController {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private abortController: AbortController | null = null;
   // A Set (not a single slot) — this controller can be shared across multiple consumers
-  // at once via PromQLSuggestionRegistryProvider (Part 28.4), each independently
+  // at once via PromQLSuggestionRegistryProvider, each independently
   // subscribing/unsubscribing without stomping on the others.
   private readonly listeners = new Set<(state: AsyncSuggestionState) => void>();
   private lastState: AsyncSuggestionState = { status: 'idle', results: [] };
@@ -106,8 +106,9 @@ export class AsyncSuggestionController {
   }
 }
 
-/** Defensively coerces untrusted provider output into valid Suggestion objects, dropping malformed entries. */
-function sanitizeResults(results: unknown): Suggestion[] {
+/** Defensively coerces untrusted provider output into valid Suggestion objects, dropping
+ * malformed entries and capping string lengths. */
+export function sanitizeResults(results: unknown): Suggestion[] {
   if (!Array.isArray(results)) return [];
   const out: Suggestion[] = [];
   for (const item of results) {

@@ -20,13 +20,26 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
 
       - run: npm ci
       - run: npm run build
       - run: npm test -- --run
+      - run: npm run size
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          mkdir -p sbom
+          for pkg in core react meta monaco codemirror; do
+            npm sbom --sbom-format cyclonedx --workspace "packages/$pkg" > "sbom/$pkg.cdx.json"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/
 
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
@@ -36,3 +49,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'

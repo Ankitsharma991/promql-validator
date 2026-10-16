@@ -8,13 +8,15 @@ export interface FunctionSpec {
   rangeVectorArg?: boolean;
   /** Index of the range-vector argument when `rangeVectorArg` is set. Default: 0. */
   rangeVectorArgIndex?: number;
+  /** Requires Prometheus' `--enable-feature=promql-experimental-functions`. */
+  experimental?: boolean;
   detail: string;
   description: string;
   insertText?: string;
 }
 
 // Reference: Prometheus stable query function list. Dictionary schema version tracked
-// independently of package semver in CHANGELOG-GRAMMAR.md (see PRD Part 13.3).
+// independently of package semver in CHANGELOG-GRAMMAR.md.
 export const PROMQL_FUNCTIONS: FunctionSpec[] = [
   { name: 'abs', minArgs: 1, maxArgs: 1, detail: 'abs(v instant-vector)', description: 'Returns the input vector with all sample values converted to their absolute value.' },
   { name: 'absent', minArgs: 1, maxArgs: 1, detail: 'absent(v instant-vector)', description: 'Returns an empty vector if the input vector has elements, and a 1-element vector with the value 1 if it has no elements.' },
@@ -39,19 +41,19 @@ export const PROMQL_FUNCTIONS: FunctionSpec[] = [
   { name: 'histogram_stddev', minArgs: 1, maxArgs: 1, detail: 'histogram_stddev(v instant-vector)', description: 'Returns the estimated standard deviation of observations in a native histogram.' },
   { name: 'histogram_stdvar', minArgs: 1, maxArgs: 1, detail: 'histogram_stdvar(v instant-vector)', description: 'Returns the estimated standard variance of observations in a native histogram.' },
   { name: 'histogram_sum', minArgs: 1, maxArgs: 1, detail: 'histogram_sum(v instant-vector)', description: 'Returns the sum of observations stored in a native histogram.' },
-  { name: 'holt_winters', minArgs: 3, maxArgs: 3, rangeVectorArg: true, detail: 'holt_winters(v range-vector, sf scalar, tf scalar)', description: 'Produces a smoothed value for time series based on the range in v (double exponential smoothing).' },
-  { name: 'double_exponential_smoothing', minArgs: 3, maxArgs: 3, rangeVectorArg: true, detail: 'double_exponential_smoothing(v range-vector, sf scalar, tf scalar)', description: 'Produces a smoothed value for time series based on the range in v.' },
+  { name: 'holt_winters', minArgs: 3, maxArgs: 3, rangeVectorArg: true, detail: 'holt_winters(v range-vector, sf scalar, tf scalar)', description: 'Prometheus 2.x name for double_exponential_smoothing (renamed in Prometheus 3.0).' },
+  { name: 'double_exponential_smoothing', minArgs: 3, maxArgs: 3, rangeVectorArg: true, detail: 'double_exponential_smoothing(v range-vector, sf scalar, tf scalar)', description: 'Produces a smoothed value for time series based on the range in v.', experimental: true },
   { name: 'hour', minArgs: 0, maxArgs: 1, detail: 'hour(v=vector(time()) instant-vector)', description: 'Returns the hour of the day for each of the given times in UTC.' },
   { name: 'idelta', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'idelta(v range-vector)', description: 'Calculates the difference between the last two samples in the range vector.' },
   { name: 'increase', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'increase(v range-vector)', description: 'Calculates the increase in the time series over a range, extrapolated to cover the full range.', insertText: 'increase($0)' },
-  { name: 'info', minArgs: 1, maxArgs: 2, detail: 'info(v instant-vector, [dataLabelSelector instant-vector])', description: 'Finds related info metric series and adds their identifying labels to the results.' },
+  { name: 'info', minArgs: 1, maxArgs: 2, detail: 'info(v instant-vector, [dataLabelSelector instant-vector])', description: 'Finds related info metric series and adds their identifying labels to the results.', experimental: true },
   { name: 'irate', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'irate(v range-vector)', description: 'Calculates the per-second instant rate of increase using the last two data points.', insertText: 'irate($0)' },
   { name: 'label_join', minArgs: 4, maxArgs: Infinity, detail: 'label_join(v instant-vector, dst_label, separator, src_label_1, ...)', description: 'Joins values of several source labels into a destination label using a separator.' },
   { name: 'label_replace', minArgs: 5, maxArgs: 5, detail: 'label_replace(v instant-vector, dst_label, replacement, src_label, regex)', description: 'Matches a regex against a source label and replaces/creates a destination label.' },
   { name: 'ln', minArgs: 1, maxArgs: 1, detail: 'ln(v instant-vector)', description: 'Calculates the natural logarithm for all elements in v.' },
   { name: 'log2', minArgs: 1, maxArgs: 1, detail: 'log2(v instant-vector)', description: 'Calculates the binary logarithm for all elements in v.' },
   { name: 'log10', minArgs: 1, maxArgs: 1, detail: 'log10(v instant-vector)', description: 'Calculates the decimal logarithm for all elements in v.' },
-  { name: 'mad_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'mad_over_time(v range-vector)', description: 'The median absolute deviation of all points in the specified range.' },
+  { name: 'mad_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'mad_over_time(v range-vector)', description: 'The median absolute deviation of all points in the specified range.', experimental: true },
   { name: 'minute', minArgs: 0, maxArgs: 1, detail: 'minute(v=vector(time()) instant-vector)', description: 'Returns the minute of the hour for each of the given times in UTC.' },
   { name: 'month', minArgs: 0, maxArgs: 1, detail: 'month(v=vector(time()) instant-vector)', description: 'Returns the month of the year for each of the given times in UTC.' },
   { name: 'predict_linear', minArgs: 2, maxArgs: 2, rangeVectorArg: true, detail: 'predict_linear(v range-vector, t scalar)', description: 'Predicts the value of a time series t seconds from now, based on simple linear regression.' },
@@ -62,8 +64,8 @@ export const PROMQL_FUNCTIONS: FunctionSpec[] = [
   { name: 'sgn', minArgs: 1, maxArgs: 1, detail: 'sgn(v instant-vector)', description: 'Returns -1, 0, or 1 depending on the sign of the sample values.' },
   { name: 'sort', minArgs: 1, maxArgs: 1, detail: 'sort(v instant-vector)', description: 'Returns the elements of v sorted by their sample values, ascending.' },
   { name: 'sort_desc', minArgs: 1, maxArgs: 1, detail: 'sort_desc(v instant-vector)', description: 'Returns the elements of v sorted by their sample values, descending.' },
-  { name: 'sort_by_label', minArgs: 2, maxArgs: Infinity, detail: 'sort_by_label(v instant-vector, label, ...)', description: 'Returns elements of v sorted by their label values, ascending.' },
-  { name: 'sort_by_label_desc', minArgs: 2, maxArgs: Infinity, detail: 'sort_by_label_desc(v instant-vector, label, ...)', description: 'Returns elements of v sorted by their label values, descending.' },
+  { name: 'sort_by_label', minArgs: 2, maxArgs: Infinity, detail: 'sort_by_label(v instant-vector, label, ...)', description: 'Returns elements of v sorted by their label values, ascending.', experimental: true },
+  { name: 'sort_by_label_desc', minArgs: 2, maxArgs: Infinity, detail: 'sort_by_label_desc(v instant-vector, label, ...)', description: 'Returns elements of v sorted by their label values, descending.', experimental: true },
   { name: 'sqrt', minArgs: 1, maxArgs: 1, detail: 'sqrt(v instant-vector)', description: 'Calculates the square root of all elements in v.' },
   { name: 'time', minArgs: 0, maxArgs: 0, detail: 'time()', description: 'Returns the number of seconds since January 1, 1970 UTC.' },
   { name: 'timestamp', minArgs: 1, maxArgs: 1, detail: 'timestamp(v instant-vector)', description: "Returns the timestamp of each of the samples of the given vector as the number of seconds since epoch." },
@@ -96,6 +98,14 @@ export const PROMQL_FUNCTIONS: FunctionSpec[] = [
   { name: 'stdvar_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'stdvar_over_time(v range-vector)', description: 'The population standard variance of the values in the specified range.' },
   { name: 'last_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'last_over_time(v range-vector)', description: 'The most recent point value in the specified range.' },
   { name: 'present_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'present_over_time(v range-vector)', description: 'The value 1 for any series in the specified range that has a present value.' },
+  { name: 'first_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'first_over_time(v range-vector)', description: 'The oldest point value in the specified range.', experimental: true },
+  { name: 'ts_of_first_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'ts_of_first_over_time(v range-vector)', description: 'The timestamp of the oldest sample in the specified range.', experimental: true },
+  { name: 'ts_of_last_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'ts_of_last_over_time(v range-vector)', description: 'The timestamp of the most recent sample in the specified range.', experimental: true },
+  { name: 'ts_of_max_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'ts_of_max_over_time(v range-vector)', description: 'The timestamp of the maximum value in the specified range.', experimental: true },
+  { name: 'ts_of_min_over_time', minArgs: 1, maxArgs: 1, rangeVectorArg: true, detail: 'ts_of_min_over_time(v range-vector)', description: 'The timestamp of the minimum value in the specified range.', experimental: true },
+  { name: 'integral', minArgs: 1, maxArgs: 2, rangeVectorArg: true, detail: 'integral(v range-vector, [unit scalar])', description: 'The integral of the series over the specified range.', experimental: true },
+  { name: 'start_timestamp', minArgs: 1, maxArgs: 1, detail: 'start_timestamp(v instant-vector)', description: 'The start (created) timestamp of each sample, where the series exposes one.', experimental: true },
+  { name: 'histogram_quantiles', minArgs: 3, maxArgs: 12, detail: 'histogram_quantiles(b instant-vector, label string, φ scalar, ...)', description: 'Calculates several φ-quantiles at once, writing each into the given label.', experimental: true },
 ];
 
 export const PROMQL_FUNCTION_NAMES = new Set(PROMQL_FUNCTIONS.map((f) => f.name));

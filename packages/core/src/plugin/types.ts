@@ -2,11 +2,9 @@ import type { Validator } from '../validator/validate.js';
 import type { DynamicSuggestionGroup, SuggestionCategoryConfig, SuggestionInput, SuggestionProvider } from '../suggestions/types.js';
 
 /**
- * A distributable bundle of custom validation rules, dictionary extensions, and/or
- * suggestion sources — e.g. an organization's own "@my-company/promql-plugin" package
- * exporting one of these. Deliberately a **plain data object**, not a dynamically-loaded
- * module: this package never fetches or executes remote code (Part 26 Privacy) — a plugin
- * is just your own already-imported, already-trusted JS object, composed declaratively.
+ * A bundle of validation rules, dictionary extensions and suggestion sources, e.g. an
+ * organization's own `@my-company/promql-plugin` package. It's a plain object you import
+ * yourself; the library never fetches or loads plugin code on its own.
  */
 export interface PromQLPlugin {
   name: string;

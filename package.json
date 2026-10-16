@@ -58,5 +58,18 @@
     "typescript": "^5.5.3",
     "vitepress": "^1.3.4",
     "vitest": "^2.0.3"
+  },
+  "author": {
+    "name": "Ankit Sharma",
+    "email": "sharmaa7861@gmail.com",
+    "url": "https://ankitsharma991.com.np"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ankitsharma991/promql-validator.git"
+  },
+  "homepage": "https://github.com/Ankitsharma991/promql-validator#readme",
+  "bugs": {
+    "url": "https://github.com/Ankitsharma991/promql-validator/issues"
   }
 }

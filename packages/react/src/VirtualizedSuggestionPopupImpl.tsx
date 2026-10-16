@@ -5,15 +5,14 @@ import { SuggestionItemContent } from './SuggestionItemContent.js';
 import { SuggestionPopupFrame, itemClassName, type SuggestionPopupProps } from './SuggestionPopup.js';
 
 /**
- * Opt-in virtualized suggestion list (`suggestionListMode="virtualized"`). Lives in its own
- * module, loaded only via `React.lazy(() => import(...))` from `PromQLInput.tsx`, so
- * `@tanstack/react-virtual` — an *optional* peer dependency (see package.json) — is never
- * pulled into a consumer's bundle unless this mode is actually used (Part 27.2/35: v1's
- * default ranked-cap rendering already keeps the DOM small; this is only worth the extra
- * dependency when a host has a real need to let users browse far more than ~50 candidates).
+ * Opt-in virtualized suggestion list (`suggestionListMode="virtualized"`). It lives in its own
+ * module and is loaded with `React.lazy` from `PromQLInput.tsx`, so the optional
+ * `@tanstack/react-virtual` peer dependency only lands in a bundle that uses this mode. The
+ * default ranked-cap list already keeps the DOM small; virtualization is for hosts that want
+ * users to scroll through far more than ~50 candidates.
  */
 function VirtualizedSuggestionPopupImpl(props: SuggestionPopupProps) {
-  const { id, suggestions, highlightedIndex, loading, onHover, onSelect, iconMap, classNames, matchText } = props;
+  const { id, suggestions, highlightedIndex, loading, onHover, onSelect, iconMap, classNames, matchText, messages } = props;
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -33,7 +32,7 @@ function VirtualizedSuggestionPopupImpl(props: SuggestionPopupProps) {
 
   return (
     <SuggestionPopupFrame {...props}>
-      <div ref={parentRef} id={id} role="listbox" aria-label="Suggestions" aria-busy={loading || undefined} className="promql-suggestion-list">
+      <div ref={parentRef} id={id} role="listbox" aria-label={messages.suggestionsLabel} aria-busy={loading || undefined} className="promql-suggestion-list">
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const s: Suggestion | undefined = suggestions[virtualRow.index];
@@ -56,7 +55,7 @@ function VirtualizedSuggestionPopupImpl(props: SuggestionPopupProps) {
                 }}
                 onClick={() => onSelect(virtualRow.index)}
               >
-                <SuggestionItemContent suggestion={s} iconMap={iconMap} matchText={matchText} />
+                <SuggestionItemContent suggestion={s} messages={messages} iconMap={iconMap} matchText={matchText} />
               </div>
             );
           })}

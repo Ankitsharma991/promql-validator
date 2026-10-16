@@ -24,19 +24,34 @@ npm install @promql-validator/core
 
 ## Package layout
 
-| Package | Contains | Pulls in React? |
+| Package | Contains | Peer dependencies |
 |---|---|---|
-| `promql-validator` | Everything (convenience re-export of `@promql-validator/react`) | Yes (peer dep) |
-| `@promql-validator/react` | `<PromQLInput/>` and friends | Yes (peer dep) |
-| `@promql-validator/core` | Parser, validator, formatter, suggestion engine | No |
+| `promql-validator` | The React editor, everything from core, and the CLI | `react`, `react-dom` |
+| `@promql-validator/react` | `<PromQLInput/>` and the shared provider | `react`, `react-dom` (`@tanstack/react-virtual` optional) |
+| `@promql-validator/core` | Parser, validator, formatter, suggestion engine | none |
+| `@promql-validator/monaco` | Monaco Editor language support | `monaco-editor` |
+| `@promql-validator/codemirror` | CodeMirror 6 language support | `@codemirror/*` |
+
+## Monaco or CodeMirror
+
+```bash
+npm install @promql-validator/monaco monaco-editor
+npm install @promql-validator/codemirror @codemirror/state @codemirror/view @codemirror/language @codemirror/autocomplete @codemirror/lint
+```
+
+See [Monaco](./monaco.md) and [CodeMirror](./codemirror.md).
 
 ## TypeScript
 
-Both packages ship their own `.d.ts` — no `@types/*` package needed. `strict` mode is fully supported; the public API avoids `any`.
+Every package ships its own type declarations, so no `@types/*` package is needed. The public API is fully typed and works with `strict` mode.
 
 ## Module formats
 
-Both ESM (`import`) and CJS (`require`) are published via an `exports` map. Bundlers (Vite, webpack, Next.js, Rollup) resolve ESM automatically; a plain Node `require()` script gets the CJS build.
+ESM (`import`) and CommonJS (`require`) builds are published through an `exports` map. Bundlers (Vite, webpack, Next.js, Rollup) pick the ESM build; a plain Node `require()` gets CommonJS.
+
+## Next.js
+
+The component is SSR-safe. In the App Router, render it from a client component (`'use client'`). See `examples/nextjs-app-router` and `examples/nextjs-pages-router`.
 
 ## Environment variables
 

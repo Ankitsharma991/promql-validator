@@ -1,47 +1,75 @@
-# Contributing to promql-validator
+# Contributing
 
-## Dev setup
+Thanks for helping out! Bug reports, failing queries, docs fixes and pull requests are all welcome.
+
+## Setup
 
 ```bash
+git clone https://github.com/Ankitsharma991/promql-validator.git
+cd promql-validator
 npm install
-npm run build       # builds every workspace package
-npm test            # runs the full vitest suite (core + react)
-npm run typecheck   # tsc --noEmit across every package
+npm run build       # builds every package (the React package imports core's build output)
+npm test            # vitest: unit, component, conformance, accessibility
 ```
 
-This is an npm-workspaces monorepo (`packages/core`, `packages/react`, `packages/meta`, `packages/monaco`, `packages/codemirror`) — no separate bootstrap step needed beyond `npm install` at the repo root.
+Other useful scripts:
 
-## Adding a PromQL function to the built-in dictionary
+```bash
+npm run typecheck   # tsc --noEmit in every package
+npm run lint
+npm run size        # bundle size budgets (.size-limit.json)
+npm run e2e         # Playwright against examples/vite-react-ts
+npm run benchmark   # latency numbers
+npm run docs:dev    # docs site on localhost
+npm run dev --workspace=examples/vite-react-ts
+```
 
-Edit `packages/core/src/suggestions/builtins/functions.ts` (or `aggregations.ts` for aggregation operators). Each entry needs `minArgs`/`maxArgs` (used by the validator's arity check) and, for functions whose first argument must be a range vector, `rangeVectorArg: true`. Add a matching case to `packages/core/src/__tests__/validate.test.ts` if the function has a non-obvious arity rule.
+It's an npm-workspaces monorepo:
 
-Dictionary/grammar-coverage changes are tracked in `CHANGELOG-GRAMMAR.md`, separate from the package's own `CHANGELOG.md` — they're additive data changes, not API breaking changes.
+```
+packages/core        @promql-validator/core        parser, validator, formatter, suggestions
+packages/react       @promql-validator/react       <PromQLInput/>
+packages/meta        promql-validator              re-export + CLI
+packages/monaco      @promql-validator/monaco
+packages/codemirror  @promql-validator/codemirror
+```
 
-## Adding a test case
+## Reporting a wrong validation result
 
-- Parser/validator/formatter/suggestion-engine behavior → `packages/core/src/__tests__/`.
-- `<PromQLInput/>` behavior → `packages/react/src/__tests__/`.
-- A new "incomplete, mid-typing" query shape → add it to `validate.test.ts`'s incomplete-states list AND confirm it doesn't emit an error diagnostic.
-- A new invalid-query case → add it with its expected `DiagnosticCode`.
+Open an issue with the exact query, what Prometheus says about it (`promtool` or the Prometheus UI) and what this package says. A fix always comes with a new line in `packages/core/conformance/promql.json`.
+
+## Common changes
+
+**Add or update a PromQL function**: edit `packages/core/src/suggestions/builtins/functions.ts`. Each entry needs `minArgs`/`maxArgs`, `rangeVectorArg` (plus `rangeVectorArgIndex` if the range vector isn't the first argument), a `detail` signature and a one-line `description`. Mark feature-flagged functions `experimental: true`. Add a valid and an invalid query to the conformance corpus and a line to `CHANGELOG-GRAMMAR.md`.
+
+**Add observability vocabulary**: edit `packages/core/src/suggestions/builtins/monitoring.ts`. Keep entries to names that are genuinely common across deployments.
+
+**Grammar changes**: the lexer is `packages/core/src/lexer/tokenizer.ts` and the parser is `packages/core/src/parser/parser.ts`. Keep the two failure modes apart: running out of input is *incomplete* (no diagnostic); a wrong token is an *error*.
+
+**Editor changes**: `packages/react/src`. Run the accessibility tests (`a11y.test.tsx`) and check the result in a browser (the Vite example) in light and dark mode.
+
+## Tests
+
+- Core behaviour: `packages/core/src/__tests__/`, plus the corpus in `packages/core/conformance/promql.json`.
+- Component behaviour: `packages/react/src/__tests__/`. Use `userEvent.keyboard()` to type at the caret; note that user-event treats `[` and `{` as special characters, so a literal `[` is written `[[`.
+- Adapters: each adapter has a parity test checking it reports the same diagnostics and suggestions as core.
 
 ## Code style
 
-- Strict TypeScript, no unexplained `any`.
-- `pipelines`/deterministic logic (`packages/core`) never imports from `packages/react`.
-- Prefer a small, well-tested internal implementation over adding a runtime dependency — see "Dependency Strategy" reasoning in the project's PRD.
+- Strict TypeScript, no `any` without a reason.
+- `packages/core` never imports from the UI packages, and the adapters never re-implement parsing or ranking. They call core.
+- No new runtime dependencies without discussing it in an issue first.
+- Comments explain *why*; the code should explain *what*.
 
-## Performance and bundle-size gates
+## Bundle size and performance
 
-CI enforces two things beyond tests, both of which you can (and should) run locally before opening a PR:
-
-- **Bundle size** — `npm run build && npm run size` checks every published package's gzipped output against the budgets in `.size-limit.json`. If your change legitimately needs more room, raise the specific budget in that file as part of the PR and explain why in the description — don't raise it speculatively.
-- **Performance** — `npm run build --workspace=packages/core && npm run benchmark:check` compares validation/suggestion latency against the committed baseline in `scripts/benchmark-baseline.json`. A run is only flagged as a regression when it's both >5x slower *and* >1ms slower in absolute terms than the baseline, since sub-millisecond timings are naturally noisy — so a flagged run is a real signal, not jitter. If your change intentionally trades latency for something else (or is a genuine, verified perf improvement), update the baseline in the same PR:
-  ```bash
-  npm run build --workspace=packages/core
-  npm run benchmark:write-baseline
-  ```
-  and explain the tradeoff in the PR description. Never update the baseline just to make a failing check pass without understanding why it regressed first.
+CI fails if a package grows past its budget in `.size-limit.json` or if latency regresses against `scripts/benchmark-baseline.json` (only when a run is both more than 5x slower and more than 1 ms slower, so noise doesn't trip it). If a change legitimately needs more room or trades speed for something else, update the budget or baseline (`npm run benchmark:write-baseline`) in the same pull request and explain why.
 
 ## Pull requests
 
-Please include: what changed and why, test coverage for the change, and a one-line bundle-size impact note if you touched `packages/core` or `packages/react`'s runtime code.
+1. Branch from `main`.
+2. Add tests for the change.
+3. If it changes published behaviour, add a changeset: `npm run changeset`.
+4. Make sure `npm test`, `npm run typecheck`, `npm run lint` and `npm run size` pass.
+
+By contributing you agree to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).

@@ -8,10 +8,10 @@ Run `node --expose-gc scripts/benchmark.mjs` (after `npm run build`) from the re
 
 | Query | p50 | p95 | p99 |
 |---|---|---|---|
-| `up` (2 chars) | 0.006ms | 0.011ms | 0.037ms |
-| 97-char medium query | 0.020ms | 0.064ms | 0.165ms |
-| 389-char large query (8 chained terms) | 0.041ms | 0.131ms | 0.222ms |
-| 301-char pathological nesting (150 levels deep) | 0.101ms | 0.278ms | 0.420ms |
+| `up` (2 chars) | 0.007ms | 0.021ms | 0.035ms |
+| 97-char medium query | 0.027ms | 0.049ms | 0.159ms |
+| 389-char large query (8 chained terms) | 0.049ms | 0.082ms | 0.215ms |
+| 301-char pathological nesting (150 levels deep) | 0.136ms | 0.270ms | 0.450ms |
 
 All comfortably inside the <5ms per-parse budget with large margin — the 150ms default validation debounce is "wait for the user to pause," not "wait for computation."
 
@@ -19,18 +19,18 @@ All comfortably inside the <5ms per-parse budget with large margin — the 150ms
 
 | Candidates | Empty prefix (warm) | Typed prefix (warm) |
 |---|---|---|
-| 100 | 0.082ms | 0.092ms |
-| 1,000 | 0.119ms | 0.010ms |
-| 10,000 | 0.324ms | 0.015ms |
-| 100,000 | 0.182ms | 0.009ms |
+| 100 | 0.085ms | 0.099ms |
+| 1,000 | 0.129ms | 0.015ms |
+| 10,000 | 0.330ms | 0.027ms |
+| 100,000 | 0.185ms | 0.013ms |
 
 "Warm" means the source array's index has already been built (the normal steady-state case — see [Dynamic Suggestions](./dynamic-suggestions.md)). One-time index-build cost for a *fresh* array reference:
 
 | Items | Cold build p50 |
 |---|---|
-| 1,000 | 0.967ms |
-| 10,000 | 3.703ms |
-| 100,000 | 34.317ms |
+| 1,000 | 0.716ms |
+| 10,000 | 3.323ms |
+| 100,000 | 37.394ms |
 
 This is paid once per array reference, not per keystroke — keep dynamic-suggestion arrays referentially stable across renders to get the warm numbers.
 

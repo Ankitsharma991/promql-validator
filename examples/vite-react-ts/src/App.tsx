@@ -4,7 +4,7 @@ import { CLUSTERS, CONTAINERS, METRIC_NAMES, NAMESPACES, SERVICES, fetchLabelVal
 import { MonacoDemo } from './MonacoDemo';
 import { CodeMirrorDemo } from './CodeMirrorDemo';
 
-// A minimal custom validator, demonstrating the extension point (Part 28.1 of the PRD):
+// A minimal custom validator, demonstrating the extension point:
 // it receives the already-parsed AST plus the raw query and returns extra diagnostics
 // merged into the same ValidationResult as the built-in checks.
 const forbidCardinalityBomb: Validator = (_ast, query) => {

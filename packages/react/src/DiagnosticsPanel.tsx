@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getQuickFix, type Diagnostic, type QuickFix } from '@promql-validator/core';
 import { SEVERITY_ICONS } from './icons.js';
+import { defaultMessages, type PromQLMessages } from './messages.js';
 
 export interface DiagnosticsPanelProps {
   /** The query the diagnostics were computed for (enables text-dependent quick fixes). */
@@ -11,11 +12,12 @@ export interface DiagnosticsPanelProps {
   /** Omit to disable the quick-fix UI entirely. */
   onApplyFix?: (fix: QuickFix) => void;
   classNames?: { diagnostics?: string; diagnosticItem?: string };
+  messages?: PromQLMessages;
 }
 
 const SEVERITY_ORDER: Record<Diagnostic['severity'], number> = { error: 0, warning: 1, info: 2 };
 
-export function DiagnosticsPanel({ query, diagnostics, maxVisible, onSelect, onApplyFix, classNames }: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({ query, diagnostics, maxVisible, onSelect, onApplyFix, classNames, messages = defaultMessages }: DiagnosticsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   if (diagnostics.length === 0) return null;
 
@@ -40,15 +42,15 @@ export function DiagnosticsPanel({ query, diagnostics, maxVisible, onSelect, onA
               <Icon />
             </span>
             <button type="button" className="promql-diagnostic-message" onClick={() => onSelect(d)}>
-              <span>{d.message}</span>
+              <span>{messages.diagnostic(d) ?? d.message}</span>
               {d.suggestion ? <span className="promql-diagnostic-suggestion"> — {d.suggestion}</span> : null}
             </button>
-            <span className="promql-diagnostic-position" title={`Line ${d.line}, column ${d.column}`}>
+            <span className="promql-diagnostic-position" title={messages.position(d.line, d.column)}>
               {d.line}:{d.column}
             </span>
             {fix && (
               <button type="button" className="promql-diagnostic-fix" onClick={() => onApplyFix!(fix)}>
-                {fix.label}
+                {messages.quickFix(fix) ?? fix.label}
               </button>
             )}
           </div>
@@ -56,7 +58,7 @@ export function DiagnosticsPanel({ query, diagnostics, maxVisible, onSelect, onA
       })}
       {!expanded && remaining > 0 && (
         <button type="button" className="promql-diagnostics-more" onClick={() => setExpanded(true)}>
-          Show {remaining} more
+          {messages.showMore(remaining)}
         </button>
       )}
     </div>

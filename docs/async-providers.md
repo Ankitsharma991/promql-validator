@@ -65,3 +65,7 @@ const unsubscribe = controller.subscribe((state) => {
 });
 controller.request(context);
 ```
+
+## In Monaco and CodeMirror
+
+Both adapters accept the same `suggestionProvider` function. Monaco cancels it through its completion cancellation token and CodeMirror when it abandons a completion request; in both, the output goes through the same sanitising as in the React component. See [Monaco](./monaco.md) and [CodeMirror](./codemirror.md).

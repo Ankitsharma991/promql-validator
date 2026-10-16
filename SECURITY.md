@@ -1,17 +1,27 @@
 # Security Policy
 
+## Supported versions
+
+The latest minor release gets security fixes. After a new major release, the previous major keeps receiving security fixes for 12 months. See [docs/compatibility.md](./docs/compatibility.md).
+
 ## Reporting a vulnerability
 
-Please report suspected security vulnerabilities privately via GitHub's "Report a vulnerability" flow on this repository (Security tab → Advisories → New draft security advisory), rather than filing a public issue. We aim to acknowledge reports within a few business days.
+Please report vulnerabilities privately, not in a public issue:
+
+- GitHub: **Security → Report a vulnerability** on <https://github.com/Ankitsharma991/promql-validator/security/advisories/new>
+- Email: **sharmaa7861@gmail.com** (subject starting with `[security] promql-validator`)
+
+Include the affected package and version, a description, and the smallest input that reproduces it (a query string or a suggestion payload is usually enough).
+
+You'll get a first response within **3 business days**. Confirmed issues are fixed in a patch release, and reporters are credited in the release notes unless they prefer to stay anonymous.
 
 ## Scope
 
-`promql-validator` (`@promql-validator/core`, `@promql-validator/react`, `promql-validator`) makes **no network requests on its own** and stores no data outside in-memory component state (see the README's Privacy section). Relevant vulnerability classes for this project:
+The packages make **no network requests of their own** and store nothing outside in-memory state. Relevant issues include:
 
-- XSS via unsanitized rendering of suggestion content (the package renders all suggestion text as plain text, never `dangerouslySetInnerHTML`).
-- ReDoS or unbounded-recursion denial-of-service via crafted query text (the parser enforces a max nesting depth and the fuzzy matcher is a bounded, non-regex algorithm — see `packages/core/src/suggestions/fuzzy.ts` and `MAX_NESTING_DEPTH` in `packages/core/src/parser/parser.ts`).
-- Dependency supply-chain issues in the (intentionally minimal) dependency tree.
+- Markup or script injection through suggestion content (all suggestion text is rendered as plain text, never as HTML).
+- Denial of service through crafted query text: excessive recursion, super-linear matching (the parser has a nesting limit and a length guard; the fuzzy matcher is linear-time and regex-free).
+- Unexpected network access or data persistence by any package.
+- Supply-chain problems in the published packages.
 
-## Disclosure
-
-We'll credit reporters (unless anonymity is requested) in the release notes once a fix ships.
+[THREAT_MODEL.md](./THREAT_MODEL.md) describes the data flows, trust boundaries and mitigations in more detail.

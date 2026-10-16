@@ -9,7 +9,7 @@ beforeAll(() => {
   expect.extend(toHaveNoViolations);
 });
 
-// Automated a11y scan (Part 24/31.2/40/81) — a required, blocking check, run against every
+// Automated a11y scan — a required, blocking check, run against every
 // documented component state, not just the default render.
 describe('PromQLInput — accessibility (axe)', () => {
   it('has no violations: empty, default state', async () => {

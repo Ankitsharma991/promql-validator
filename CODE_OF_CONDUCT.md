@@ -47,9 +47,9 @@ representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainers via the process described in `SECURITY.md`'s
-contact channel, or by opening a private security advisory. All complaints
-will be reviewed and investigated promptly and fairly.
+reported to the maintainer, Ankit Sharma, at sharmaa7861@gmail.com. All
+complaints will be reviewed and investigated promptly and fairly, and the
+reporter's privacy will be respected.
 
 ## Attribution
 

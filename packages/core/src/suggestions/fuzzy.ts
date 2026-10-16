@@ -1,6 +1,6 @@
 /**
  * Bounded, linear-time subsequence fuzzy matcher — deliberately not regex-based (avoids
- * any catastrophic-backtracking / ReDoS risk on adversarial input, PRD Part 25).
+ * any catastrophic-backtracking / ReDoS risk on adversarial input).
  *
  * Returns a score in [0, 1] when `needle`'s characters appear as a subsequence of
  * `haystack` (case-insensitive), or `null` when they don't match at all. Denser,

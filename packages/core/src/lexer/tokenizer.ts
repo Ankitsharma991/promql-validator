@@ -1,8 +1,7 @@
 import { Token, TokenType } from './token.js';
 
-const DURATION_UNITS = ['ms', 'ns', 'us', 'µs', 's', 'm', 'h', 'd', 'w', 'y'];
-// Sorted longest-first so greedy matching prefers e.g. "ms" over "m" then "s".
-const SORTED_UNITS = [...DURATION_UNITS].sort((a, b) => b.length - a.length);
+// The units Prometheus accepts, longest first so "ms" wins over "m" followed by "s".
+const SORTED_UNITS = ['ms', 's', 'm', 'h', 'd', 'w', 'y'];
 
 function isDigit(ch: string): boolean {
   return ch >= '0' && ch <= '9';
@@ -21,7 +20,11 @@ function isIdentContinue(ch: string): boolean {
 }
 
 function isAlpha(ch: string): boolean {
-  return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch === 'µ';
+  return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+}
+
+function isHexDigit(ch: string): boolean {
+  return isDigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
 }
 
 /**
@@ -72,8 +75,18 @@ export class Lexer {
         this.advance();
         continue;
       }
+      if (ch === '#') {
+        // Line comment.
+        while (this.pos < this.src.length && this.peekChar() !== '\n') this.advance();
+        continue;
+      }
       break;
     }
+  }
+
+  /** Consumes a run of digits, allowing single `_` separators between digits (`1_000_000`). */
+  private consumeDigits(isValid: (ch: string) => boolean = isDigit): void {
+    while (isValid(this.peekChar()) || (this.peekChar() === '_' && isValid(this.peekChar(1)))) this.advance();
   }
 
   private makeToken(type: TokenType, start: number, startLine: number, startCol: number, value: string): Token {
@@ -171,25 +184,26 @@ export class Lexer {
     if (this.peekChar() === '0' && (this.peekChar(1) === 'x' || this.peekChar(1) === 'X')) {
       this.advance();
       this.advance();
-      while (/[0-9a-fA-F]/.test(this.peekChar())) this.advance();
+      if (this.peekChar() === '_') this.advance(); // `0x_53_AB` is allowed
+      this.consumeDigits(isHexDigit);
       return this.makeToken(TokenType.Number, start, startLine, startCol, this.src.slice(start, this.pos));
     }
 
     const numStart = this.pos;
-    while (isDigit(this.peekChar())) this.advance();
+    this.consumeDigits();
     if (this.peekChar() === '.' && isDigit(this.peekChar(1))) {
       this.advance();
-      while (isDigit(this.peekChar())) this.advance();
+      this.consumeDigits();
     }
     if ((this.peekChar() === 'e' || this.peekChar() === 'E') && (isDigit(this.peekChar(1)) || ((this.peekChar(1) === '+' || this.peekChar(1) === '-') && isDigit(this.peekChar(2))))) {
       this.advance();
       if (this.peekChar() === '+' || this.peekChar() === '-') this.advance();
-      while (isDigit(this.peekChar())) this.advance();
+      this.consumeDigits();
     }
     const numText = this.src.slice(numStart, this.pos);
 
-    // Try to extend into a compound duration: (\d+unit)+  e.g. "5m", "1h30m5s".
-    if (isAlpha(this.peekChar())) {
+    // Only plain decimal integers take a unit (`5m`, `1h30m`); `1.5h` is not a duration.
+    if (/^\d+$/.test(numText) && isAlpha(this.peekChar())) {
       const savedPos = this.pos;
       const savedLine = this.line;
       const savedCol = this.column;
@@ -260,8 +274,10 @@ export class Lexer {
     for (;;) {
       const ch = this.peekChar();
       if (ch === '' /* EOF */) {
-        // Unterminated string: stop, let the validator flag it via the raw text.
-        break;
+        // Unterminated string (still being typed): the parser treats it as incomplete.
+        const tok = this.makeToken(TokenType.String, start, startLine, startCol, value);
+        tok.unterminated = true;
+        return tok;
       }
       if (ch === quote) {
         this.advance();

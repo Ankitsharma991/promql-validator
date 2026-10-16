@@ -53,11 +53,6 @@ function classifyTokens(tokens: Token[]): ClassifiedSpan[] {
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!;
     if (t.type === TokenType.EOF) break;
-    // A `#` outside a string starts a comment that runs to the end of the (single-line) query.
-    if (t.type === TokenType.Illegal && t.value === '#') {
-      out.push({ start: t.start, end: Number.MAX_SAFE_INTEGER, kind: 'comment' });
-      break;
-    }
     const next = tokens[i + 1];
     let kind: SyntaxKind;
 

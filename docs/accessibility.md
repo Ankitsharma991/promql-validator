@@ -6,7 +6,10 @@ Target: WCAG 2.1 AA. Automated (`jest-axe`, run against every documented compone
 
 - **Correct ARIA combobox pattern**: `role="combobox"` on the input, `aria-expanded`, `aria-controls` pointing at the popup, `aria-autocomplete="list"`, `aria-activedescendant` tracking the highlighted option; the popup is `role="listbox"` with `role="option"`/`aria-selected` children.
 - **Full keyboard operability** — see [Editor Component](./editor-component.md#keyboard). No functionality requires a mouse.
-- **Screen-reader announcements**: a visually-hidden `aria-live="polite"` region announces the suggestion count on popup open/update; the diagnostics panel is `role="alert"`/`aria-live="polite"`, debounced so it doesn't spam an announcement per keystroke.
+- **Screen-reader announcements**: a visually-hidden `aria-live="polite"` region announces the suggestion count when the popup opens or changes, and the diagnostics list is `role="alert"`/`aria-live="polite"` (validation is debounced, so it doesn't announce on every keystroke).
+- **Errors on the input itself**: `aria-invalid` is set when the query has an error. With `diagnosticsDisplay="inline"`, the messages are attached to the input through `aria-describedby`.
+- **Highlighting doesn't get in the way**: the coloured layer is `aria-hidden` and draws its text with CSS, so assistive technology, find-in-page and text selection only ever see the real input. Suggestion details are linked to the highlighted option with `aria-describedby`.
+- **Forced colours**: in Windows high-contrast mode the highlight layer is hidden and system colours are used.
 - **Focus management**: focus never silently jumps during typing/suggestion interaction; only explicit actions (Tab-out, Escape-then-Escape, programmatic blur) move it.
 - **Disabled state** uses the native `disabled` attribute (excluded from tab order per native semantics), not just visual styling.
 - **Reduced motion**: all transitions are CSS-only, gated behind `@media (prefers-reduced-motion: reduce)`.

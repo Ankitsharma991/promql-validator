@@ -1,7 +1,7 @@
 import { PROMQL_FUNCTIONS } from './builtins/functions.js';
 import { PROMQL_AGGREGATIONS } from './builtins/aggregations.js';
 import { COMMON_DURATIONS, PROMQL_OPERATORS } from './builtins/operators.js';
-import { BUILTIN_LABEL_NAMES, BUILTIN_MONITORING_TERMS } from './builtins/monitoring.js';
+import { BUILTIN_LABEL_NAMES, BUILTIN_METRICS, BUILTIN_MONITORING_TERMS } from './builtins/monitoring.js';
 import { extractContext } from './context-extractor.js';
 import { fuzzyScore } from './fuzzy.js';
 import { LARGE_SOURCE_THRESHOLD, indexedLookup } from './indexing.js';
@@ -51,7 +51,7 @@ const BUILTIN_FUNCTION_SUGGESTIONS: Suggestion[] = PROMQL_FUNCTIONS.map((f) => (
   value: f.name,
   category: 'promql-function',
   detail: f.detail,
-  description: f.description,
+  description: f.experimental ? `${f.description} Experimental: needs --enable-feature=promql-experimental-functions.` : f.description,
   insertText: f.insertText ?? defaultCallSnippet(f.name, f.maxArgs === 0),
 }));
 
@@ -86,9 +86,11 @@ const BUILTIN_LABEL_NAME_SUGGESTIONS: Suggestion[] = BUILTIN_LABEL_NAMES.map((l)
 
 const BUILTIN_MONITORING_TERM_SUGGESTIONS: Suggestion[] = BUILTIN_MONITORING_TERMS.map((t) => ({ label: t.name, value: t.name, category: 'monitoring-term', description: t.description }));
 
+const BUILTIN_METRIC_SUGGESTIONS: Suggestion[] = BUILTIN_METRICS.map((m) => ({ label: m.name, value: m.name, category: 'metric', description: m.description }));
+
 const CONTEXT_ELIGIBLE_BUILTIN_CATEGORIES: Record<AstContext, string[]> = {
-  'top-level': ['promql-function', 'aggregation', 'monitoring-term'],
-  'function-arg': ['promql-function', 'aggregation', 'monitoring-term'],
+  'top-level': ['promql-function', 'aggregation', 'metric', 'monitoring-term'],
+  'function-arg': ['promql-function', 'aggregation', 'metric', 'monitoring-term'],
   'label-name': ['label-name'],
   'label-value': [],
   duration: ['duration'],
@@ -129,6 +131,7 @@ function collectBuiltins(ctx: SuggestionContext, categoryConfig: SuggestionCateg
     ...BUILTIN_MODIFIER_SUGGESTIONS,
     ...BUILTIN_DURATION_SUGGESTIONS,
     ...BUILTIN_LABEL_NAME_SUGGESTIONS,
+    ...BUILTIN_METRIC_SUGGESTIONS,
     ...BUILTIN_MONITORING_TERM_SUGGESTIONS,
   ];
   const out: Candidate[] = [];
@@ -155,7 +158,7 @@ function collectStatic(sources: SuggestionSources, ctx: SuggestionContext, categ
   const out: Candidate[] = [];
   const needle = ctx.tokenBeforeCursor.toLowerCase();
 
-  // Large host-supplied arrays go through the memoized sorted-prefix index (Part 27.2/90)
+  // Large host-supplied arrays go through the memoized sorted-prefix index
   // instead of a full O(n) scan on every keystroke — see indexing.ts for the rationale.
   if (values.length > LARGE_SOURCE_THRESHOLD) {
     for (const s of indexedLookup(values, 'custom', needle)) {

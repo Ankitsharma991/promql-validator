@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import type { Suggestion } from '@promql-validator/core';
 import { SuggestionDocs, SuggestionFooter, SuggestionItemContent, SuggestionStatus } from './SuggestionItemContent.js';
+import type { PromQLMessages } from './messages.js';
 
 export interface SuggestionPopupProps {
   id: string;
@@ -14,6 +15,7 @@ export interface SuggestionPopupProps {
   classNames?: { popup?: string; item?: string; itemSelected?: string };
   /** The partial token being completed, used to emphasise matched characters. */
   matchText?: string;
+  messages: PromQLMessages;
 }
 
 export function itemClassName(selected: boolean, classNames: SuggestionPopupProps['classNames']): string {
@@ -26,8 +28,8 @@ export function itemClassName(selected: boolean, classNames: SuggestionPopupProp
  */
 export const SuggestionPopupFrame = React.forwardRef<
   HTMLDivElement,
-  Pick<SuggestionPopupProps, 'id' | 'suggestions' | 'highlightedIndex' | 'loading' | 'asyncError' | 'classNames'> & { children: React.ReactNode }
->(function SuggestionPopupFrame({ id, suggestions, highlightedIndex, loading, asyncError, classNames, children }, ref) {
+  Pick<SuggestionPopupProps, 'id' | 'suggestions' | 'highlightedIndex' | 'loading' | 'asyncError' | 'classNames' | 'messages'> & { children: React.ReactNode }
+>(function SuggestionPopupFrame({ id, suggestions, highlightedIndex, loading, asyncError, classNames, messages, children }, ref) {
   return (
     <div
       ref={ref}
@@ -37,15 +39,15 @@ export const SuggestionPopupFrame = React.forwardRef<
       onMouseDown={(e) => e.preventDefault()}
     >
       {children}
-      <SuggestionStatus loading={loading} asyncError={asyncError} empty={suggestions.length === 0} />
-      <SuggestionDocs id={`${id}-docs`} suggestion={suggestions[highlightedIndex]} />
-      {suggestions.length > 0 && <SuggestionFooter count={suggestions.length} />}
+      <SuggestionStatus loading={loading} asyncError={asyncError} empty={suggestions.length === 0} messages={messages} />
+      <SuggestionDocs id={`${id}-docs`} suggestion={suggestions[highlightedIndex]} messages={messages} />
+      {suggestions.length > 0 && <SuggestionFooter count={suggestions.length} messages={messages} />}
     </div>
   );
 });
 
 export const SuggestionPopup = React.forwardRef<HTMLDivElement, SuggestionPopupProps>(function SuggestionPopup(props, ref) {
-  const { id, suggestions, highlightedIndex, loading, onHover, onSelect, iconMap, classNames, matchText } = props;
+  const { id, suggestions, highlightedIndex, loading, onHover, onSelect, iconMap, classNames, matchText, messages } = props;
   const listRef = useRef<HTMLDivElement>(null);
 
   // Keep the keyboard-highlighted row visible as the user arrows through a scrolling list.
@@ -59,7 +61,7 @@ export const SuggestionPopup = React.forwardRef<HTMLDivElement, SuggestionPopupP
 
   return (
     <SuggestionPopupFrame ref={ref} {...props}>
-      <div ref={listRef} id={id} role="listbox" aria-label="Suggestions" aria-busy={loading || undefined} className="promql-suggestion-list">
+      <div ref={listRef} id={id} role="listbox" aria-label={messages.suggestionsLabel} aria-busy={loading || undefined} className="promql-suggestion-list">
         {suggestions.map((s, i) => {
           const selected = i === highlightedIndex;
           return (
@@ -77,7 +79,7 @@ export const SuggestionPopup = React.forwardRef<HTMLDivElement, SuggestionPopupP
               }}
               onClick={() => onSelect(i)}
             >
-              <SuggestionItemContent suggestion={s} iconMap={iconMap} matchText={matchText} />
+              <SuggestionItemContent suggestion={s} messages={messages} iconMap={iconMap} matchText={matchText} />
             </div>
           );
         })}

@@ -106,7 +106,7 @@ describe('PromQLInput — autocomplete', () => {
     await screen.findByRole('listbox');
     await userEvent.keyboard('{Enter}');
     // 'rate' has a snippet insertText ('rate($0)'); $0 is stripped and the cursor placed
-    // there, matching the Suggestion.insertText snippet convention (Part 14.4).
+    // there, matching the Suggestion.insertText snippet convention.
     expect(input.value).toBe('rate()');
     expect(input.selectionStart).toBe(5);
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
@@ -371,5 +371,93 @@ describe('PromQLInput — disabled/read-only', () => {
   it('read-only input does not accept edits but keeps validation running', () => {
     render(<PromQLInput defaultValue="up" readOnly aria-label="query" />);
     expect(screen.getByRole('combobox')).toHaveAttribute('readonly');
+  });
+});
+
+describe('PromQLInput — i18n, telemetry and shared provider', () => {
+  it('renders overridden UI strings and sets lang from locale', async () => {
+    render(
+      <PromQLInput
+        defaultValue=""
+        locale="es"
+        messages={{ suggestionsLabel: 'Sugerencias', hintInsert: 'insertar', suggestionsAvailable: (n) => `${n} sugerencias` }}
+        aria-label="query"
+      />,
+    );
+    const input = screen.getByRole('combobox');
+    expect(input.closest('.promql-input-root')).toHaveAttribute('lang', 'es');
+    await userEvent.click(input);
+    await userEvent.type(input, 'rat');
+    expect(await screen.findByRole('listbox', { name: 'Sugerencias' })).toBeInTheDocument();
+    expect(screen.getByText(/sugerencias$/)).toBeInTheDocument();
+    expect(screen.getByText(/insertar/)).toBeInTheDocument();
+  });
+
+  it('lets hosts translate diagnostics by code', async () => {
+    render(
+      <PromQLInput
+        defaultValue="rate(up)"
+        validationDebounceMs={10}
+        messages={{ diagnostic: (d) => (d.code === 'PQ_WRONG_ARG_TYPE' ? 'Se esperaba un vector de rango' : undefined) }}
+        aria-label="query"
+      />,
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('Se esperaba un vector de rango');
+  });
+
+  it('reports validation and suggestion telemetry without query text', async () => {
+    const onValidation = vi.fn();
+    const onSuggestionQuery = vi.fn();
+    render(<PromQLInput defaultValue="" instanceId="panel-7" validationDebounceMs={10} telemetryHooks={{ onValidation, onSuggestionQuery }} aria-label="query" />);
+    const input = screen.getByRole('combobox');
+    await userEvent.click(input);
+    await userEvent.type(input, 'rate(up[[5m])'); // `[[` types a literal `[` in user-event
+    await waitFor(() => expect(onValidation).toHaveBeenLastCalledWith({ durationMs: expect.any(Number), valid: true, incomplete: false, diagnosticCount: 0, instanceId: 'panel-7' }));
+    expect(onSuggestionQuery).toHaveBeenCalledWith({ durationMs: expect.any(Number), resultCount: expect.any(Number), instanceId: 'panel-7' });
+    for (const [event] of [...onValidation.mock.calls, ...onSuggestionQuery.mock.calls]) {
+      expect(Object.values(event).some((v) => typeof v === 'string' && v !== 'panel-7')).toBe(false);
+    }
+  });
+
+  it('applies plugins from PromQLValidatorProvider to every editor below it', async () => {
+    const { PromQLValidatorProvider } = await import('../SuggestionRegistry.js');
+    const plugin = { name: 'acme', validators: [() => [{ severity: 'error' as const, code: 'ACME', message: 'acme rule fired', start: 0, end: 1, line: 1, column: 1 }]] };
+    render(
+      <PromQLValidatorProvider plugins={[plugin]}>
+        <PromQLInput defaultValue="up" validationDebounceMs={10} aria-label="query-a" />
+        <PromQLInput defaultValue="up" validationDebounceMs={10} aria-label="query-b" />
+      </PromQLValidatorProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(2));
+    for (const alert of screen.getAllByRole('alert')) expect(alert).toHaveTextContent('acme rule fired');
+  });
+});
+
+describe('PromQLInput — diagnosticsDisplay', () => {
+  it("'inline' underlines without a panel and describes the error to assistive tech", async () => {
+    const { container } = render(<PromQLInput defaultValue="rate(up)" diagnosticsDisplay="inline" validationDebounceMs={10} aria-label="query" />);
+    const input = screen.getByRole('combobox');
+    await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(input).toHaveAccessibleDescription(/range vector/);
+    expect(container.querySelector('.promql-input-highlight [data-severity="error"]')).not.toBeNull();
+  });
+
+  it("'none' renders no diagnostics UI but still reports through onValidation", async () => {
+    const onValidation = vi.fn();
+    const { container } = render(<PromQLInput defaultValue="rate(up)" diagnosticsDisplay="none" validationDebounceMs={10} onValidation={onValidation} aria-label="query" />);
+    await waitFor(() => expect(onValidation).toHaveBeenCalledWith(expect.objectContaining({ valid: false })));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-severity="error"]')).toBeNull();
+    expect(screen.getByRole('combobox')).not.toHaveAttribute('aria-invalid');
+  });
+});
+
+describe('PromQLInput — diagnostics while the popup is open', () => {
+  it('still shows an error next to the caret when no word is being completed', async () => {
+    render(<PromQLInput defaultValue="" validationDebounceMs={10} aria-label="query" />);
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.paste('rate(x[5m)'); // caret after the mismatched ')', operator suggestions open
+    expect(await screen.findByRole('alert')).toHaveTextContent(/closing/i);
   });
 });

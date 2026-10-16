@@ -19,6 +19,22 @@ The debounce (`suggestionDebounceMs`) delays *invoking* your provider after the 
 
 Expected — see [Formatting](./formatting.md) and [Editor Component](./editor-component.md#why-input-not-textarea). The editor's single-line `<input>` can't hold a newline at all (browsers strip them); `formatPromQL()` itself fully supports multi-line output for non-UI use (CLI linting, rule-file formatting).
 
+## "A valid query is shown as incomplete"
+
+`incomplete: true` means the query has an unfinished part: an unclosed bracket, an operator with nothing after it, or an empty slot such as `rate()` or `x[]`. The editor shows *Insert missing ')'* when the fix is unambiguous. Check `valid && !incomplete` before running or saving a query.
+
+## "Errors don't appear while I'm typing"
+
+That's deliberate in two places. Validation waits `validationDebounceMs` (150 ms) after the last keystroke, and while the suggestion popup is open, an error on the word you're still typing is held back until you finish. `onValidation` always receives the full result.
+
+## "A newer Prometheus function is flagged as unknown"
+
+Unknown functions are warnings, not errors. Add the name with `customFunctions={['new_fn']}` until the dictionary catches up, and please open an issue so it can be added.
+
+## "Highlighting is misaligned with the text"
+
+The highlight layer has to use the same font as the input. If you override fonts, set `--promql-input-font-family`, `--promql-input-font-size` and `--promql-input-line-height` rather than styling the `<input>` directly. Use `syntaxHighlighting={false}` to turn the layer off.
+
 ## Common false-positive validator reports
 
-If you believe `validatePromQL` incorrectly flags a valid query (or misses a genuinely invalid one), please file it with the **exact query string** — see the "Bug report" issue template, which requires a minimal reproducing query. Grammar-correctness bugs are treated as high priority.
+If `validatePromQL` flags a query that Prometheus accepts (or accepts one Prometheus rejects), please open an issue with the **exact query** and your Prometheus version. Correctness bugs are fixed first, and each fix adds the query to the conformance corpus.

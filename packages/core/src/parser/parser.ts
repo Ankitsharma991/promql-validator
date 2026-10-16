@@ -31,12 +31,21 @@ export interface ParseResult {
 }
 
 const MAX_NESTING_DEPTH = 100;
+
+// Keywords Prometheus never accepts as a bare metric name (use `{__name__="on"}` instead).
+// Every other keyword (`by`, `offset`, `sum`, ...) is a valid metric name where an
+// expression is expected.
+const RESERVED_KEYWORDS = new Set(['bool', 'on', 'ignoring', 'group_left', 'group_right']);
+
+// Functions usable inside duration expressions (`[5m * 2]`, `[max_of(step(), 5s)]`).
+const DURATION_FUNCTION_ARITY: Record<string, number> = { step: 0, range: 0, min_of: 2, max_of: 2 };
+
+function parseNumberText(text: string): number {
+  return Number(text.replace(/_/g, ''));
+}
 const MAX_TOKENS = 50_000;
 
 const DURATION_UNIT_MS: Record<string, number> = {
-  ns: 1e-6,
-  us: 1e-3,
-  µs: 1e-3,
   ms: 1,
   s: 1000,
   m: 60_000,
@@ -46,18 +55,24 @@ const DURATION_UNIT_MS: Record<string, number> = {
   y: 365 * 86_400_000,
 };
 
+/** Milliseconds for a duration literal such as `1h30m`, or null if it's malformed. Like
+ * Prometheus, units must go from largest to smallest and each may appear only once. */
 function parseDurationText(text: string): number | null {
-  const re = /(\d+)(ms|ns|us|µs|s|m|h|d|w|y)/g;
+  const re = /(\d+)(ms|s|m|h|d|w|y)/g;
   let total = 0;
   let matchedAny = false;
   let lastEnd = 0;
+  let lastUnitMs = Infinity;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     if (m.index !== lastEnd) return null; // stray characters between components
     const amount = m[1];
     const unit = m[2];
     if (!amount || !unit) return null;
-    total += Number(amount) * (DURATION_UNIT_MS[unit] ?? NaN);
+    const unitMs = DURATION_UNIT_MS[unit]!;
+    if (unitMs >= lastUnitMs) return null; // out of order or repeated (`5m1h`, `1m1m`)
+    lastUnitMs = unitMs;
+    total += Number(amount) * unitMs;
     matchedAny = true;
     lastEnd = re.lastIndex;
   }
@@ -118,7 +133,7 @@ const MATCH_OP_BY_TOKEN: Partial<Record<TokenType, MatchOp>> = {
 /**
  * Hand-written, error-tolerant recursive-descent / precedence-climbing PromQL parser.
  *
- * Design goal (product-critical, see PRD Part 29 "Partial Query Intelligence"): a query
+ * Design goal: a query
  * that is merely *incomplete* mid-typing (`rate(`, `sum(`, `metric{`, `metric{label=`)
  * must never be treated the same as a *genuinely malformed* query. When the parser runs
  * out of input at a point where the grammar expects a continuation, it synthesizes a
@@ -134,9 +149,11 @@ export class Parser {
   private depth = 0;
   private reportedTooComplex = false;
   private readonly dialect: 'promql' | 'metricsql';
+  private readonly source: string;
 
   constructor(source: string, dialect: 'promql' | 'metricsql' = 'promql') {
-    this.tokens = tokenize(source.length > 200_000 ? source.slice(0, 200_000) : source);
+    this.source = source.length > 200_000 ? source.slice(0, 200_000) : source;
+    this.tokens = tokenize(this.source);
     this.dialect = dialect;
   }
 
@@ -148,8 +165,7 @@ export class Parser {
   private run(): ParseResult {
     const ast = this.parseExpr(0);
     // MetricsQL's `keep_metric_names` modifier may trail the whole expression — tolerate
-    // it here rather than integrating it into the full grammar (Part 54's documented
-    // best-effort-subset stance for this dialect).
+    // it here rather than integrating it into the full grammar.
     if (this.dialect === 'metricsql' && this.checkIdentifier('keep_metric_names')) {
       this.advance();
     }
@@ -335,17 +351,20 @@ export class Parser {
     switch (tok.type) {
       case TokenType.Number: {
         this.advance();
-        const value = Number(tok.value);
+        const value = parseNumberText(tok.value);
         const node: NumberLiteral = { type: 'NumberLiteral', value: Number.isNaN(value) ? 0 : value, text: tok.value, start: tok.start, end: tok.end };
         return node;
       }
       case TokenType.String: {
         this.advance();
+        if (tok.unterminated) this.incomplete = true;
         const node: StringLiteral = { type: 'StringLiteral', value: tok.value, start: tok.start, end: tok.end };
         return node;
       }
       case TokenType.LParen: {
         this.advance();
+        // `()` is the unfilled slot an auto-closed `(` leaves behind while typing.
+        if (this.check(TokenType.RParen)) this.incomplete = true;
         const inner = this.atEOF() ? null : this.parseExpr(0);
         if (inner === null) this.incomplete = true;
         const closed = this.expectClose(TokenType.RParen, tok, ')');
@@ -359,7 +378,7 @@ export class Parser {
         if (AGGREGATION_OPS.has(tok.value)) {
           return this.parseAggregateExpr();
         }
-        if (tok.value === 'by' || tok.value === 'without' || tok.value === 'on' || tok.value === 'ignoring' || tok.value === 'group_left' || tok.value === 'group_right' || tok.value === 'offset' || tok.value === 'bool' || tok.value === 'and' || tok.value === 'or' || tok.value === 'unless' || tok.value === 'atan2') {
+        if (RESERVED_KEYWORDS.has(tok.value)) {
           this.addDiagnostic('error', DiagnosticCode.UnexpectedToken, `Unexpected keyword '${tok.value}'.`, tok);
           this.advance();
           return this.synthetic();
@@ -546,6 +565,11 @@ export class Parser {
       for (;;) {
         if (this.check(TokenType.Identifier)) {
           labels.push(this.advance().value);
+        } else if (this.check(TokenType.String)) {
+          // Prometheus 3 UTF-8 label names: `by ("service.name")`.
+          const tok = this.advance();
+          if (tok.unterminated) this.incomplete = true;
+          labels.push(tok.value);
         } else if (this.atEOF()) {
           this.incomplete = true;
           break;
@@ -605,7 +629,27 @@ export class Parser {
         if (guard > MAX_TOKENS) break;
         if (this.atEOF() || this.check(TokenType.RBrace)) break;
 
-        if (!this.check(TokenType.Identifier)) {
+        // Prometheus 3 UTF-8 names: a lone quoted string is the metric name
+        // (`{"http.server.duration"}`); a quoted string before an operator is a label name.
+        if (this.check(TokenType.String)) {
+          const strTok = this.current();
+          const next = this.peek(1);
+          if (strTok.unterminated) {
+            this.advance();
+            this.incomplete = true;
+            break;
+          }
+          if (!MATCH_OP_BY_TOKEN[next.type]) {
+            this.advance();
+            matchers.push({ type: 'LabelMatcher', name: '__name__', op: '=', value: strTok.value, synthetic: false, start: strTok.start, end: strTok.end });
+            if (this.check(TokenType.Comma)) {
+              this.advance();
+              continue;
+            }
+            break;
+          }
+        }
+        if (!this.check(TokenType.Identifier) && !this.check(TokenType.String)) {
           this.addDiagnostic('error', DiagnosticCode.UnexpectedToken, `Expected a label name.`, this.current());
           this.advance();
           if (this.check(TokenType.Comma)) {
@@ -630,6 +674,7 @@ export class Parser {
         let synthetic = false;
         if (this.check(TokenType.String)) {
           const valTok = this.advance();
+          if (valTok.unterminated) this.incomplete = true;
           value = valTok.value;
           valueEnd = valTok.end;
         } else if (this.atEOF()) {
@@ -687,6 +732,11 @@ export class Parser {
         step = this.parseDurationValue();
       }
     }
+    for (const d of [range, step]) {
+      if (d && d.milliseconds !== null && d.milliseconds <= 0) {
+        this.addDiagnostic('error', DiagnosticCode.InvalidDuration, `A range or step must be greater than zero (got '${d.text}').`, d);
+      }
+    }
     const closed = this.expectClose(TokenType.RBracket, openTok, ']');
     const end = closed ? this.tokens[this.pos - 1]!.end : this.current().end;
 
@@ -698,22 +748,138 @@ export class Parser {
     return node;
   }
 
+  /**
+   * A range, subquery step or offset: a duration literal (`5m`, `1h30m`), a number of
+   * seconds (`300`), or a duration expression (`5m * 2`, `max_of(step(), 5s)`).
+   */
   private parseDurationValue(): Duration | null {
-    if (this.check(TokenType.Duration)) {
-      const tok = this.advance();
-      return { type: 'Duration', text: tok.value, milliseconds: parseDurationText(tok.value), start: tok.start, end: tok.end };
-    }
-    if (this.check(TokenType.Number)) {
-      const tok = this.advance();
-      this.addDiagnostic('error', DiagnosticCode.InvalidDuration, `Duration is missing a unit (e.g. 's', 'm', 'h'). Got '${tok.value}'.`, tok);
-      return { type: 'Duration', text: tok.value, milliseconds: null, start: tok.start, end: tok.end };
-    }
+    const startTok = this.current();
     if (this.atEOF()) {
       this.incomplete = true;
       return null;
     }
-    this.addDiagnostic('error', DiagnosticCode.InvalidDuration, `Expected a duration (e.g. '5m', '1h').`, this.current());
-    return null;
+    const before = this.diagnostics.length;
+    const ms = this.parseDurationExpr(0);
+    if (ms === undefined) return null;
+    const end = this.tokens[this.pos - 1]!.end;
+    return { type: 'Duration', text: this.source.slice(startTok.start, end), milliseconds: this.diagnostics.length > before ? null : ms, start: startTok.start, end };
+  }
+
+  /** Precedence-climbing parser for duration expressions. Returns milliseconds, null when
+   * the value depends on the query (`step()`), or undefined when nothing was parsed. */
+  private parseDurationExpr(minPrec: number): number | null | undefined {
+    let left = this.parseDurationOperand();
+    if (left === undefined) return undefined;
+    for (;;) {
+      const tok = this.current();
+      const prec = tok.type === TokenType.Add || tok.type === TokenType.Sub ? 1 : tok.type === TokenType.Mul || tok.type === TokenType.Div || tok.type === TokenType.Mod ? 2 : tok.type === TokenType.Pow ? 3 : 0;
+      if (prec === 0 || prec < minPrec) return left;
+      this.advance();
+      if (this.atEOF()) {
+        this.incomplete = true;
+        return left;
+      }
+      const right = this.parseDurationExpr(tok.type === TokenType.Pow ? prec : prec + 1);
+      if (right === undefined) return left;
+      if (left === null || right === null) {
+        left = null;
+        continue;
+      }
+      switch (tok.type) {
+        case TokenType.Add:
+          left = left + right;
+          break;
+        case TokenType.Sub:
+          left = left - right;
+          break;
+        // Multiplication/division mix durations with plain numbers: `5m * 2` is 10m.
+        case TokenType.Mul:
+          left = (left * right) / 1000;
+          break;
+        case TokenType.Div:
+          left = right === 0 ? null : (left / right) * 1000;
+          break;
+        case TokenType.Mod:
+          left = right === 0 ? null : left % right;
+          break;
+        default:
+          left = null;
+      }
+    }
+  }
+
+  private parseDurationOperand(): number | null | undefined {
+    const tok = this.current();
+    switch (tok.type) {
+      case TokenType.Duration: {
+        this.advance();
+        const ms = parseDurationText(tok.value);
+        if (ms === null) {
+          this.addDiagnostic(
+            'error',
+            DiagnosticCode.InvalidDuration,
+            `Invalid duration '${tok.value}'.`,
+            tok,
+            `Units go from largest to smallest and each is used once, e.g. '1h30m'.`,
+          );
+        }
+        return ms;
+      }
+      case TokenType.Number: {
+        // A plain number is a duration in seconds: `[300]`, `offset 60`.
+        this.advance();
+        const seconds = parseNumberText(tok.value);
+        return Number.isFinite(seconds) ? seconds * 1000 : null;
+      }
+      case TokenType.Sub:
+      case TokenType.Add: {
+        this.advance();
+        const inner = this.parseDurationOperand();
+        if (inner === undefined) {
+          if (this.atEOF()) this.incomplete = true;
+          return undefined;
+        }
+        return inner === null ? null : tok.type === TokenType.Sub ? -inner : inner;
+      }
+      case TokenType.LParen: {
+        this.advance();
+        if (this.atEOF()) {
+          this.incomplete = true;
+          return undefined;
+        }
+        const inner = this.parseDurationExpr(0);
+        this.expectClose(TokenType.RParen, tok, ')');
+        return inner ?? null;
+      }
+      case TokenType.Identifier: {
+        const arity = DURATION_FUNCTION_ARITY[tok.value];
+        if (arity !== undefined && this.peek(1).type === TokenType.LParen) {
+          this.advance();
+          const openTok = this.advance();
+          const args: Array<number | null | undefined> = [];
+          while (!this.check(TokenType.RParen) && !this.atEOF()) {
+            args.push(this.parseDurationExpr(0));
+            if (!this.check(TokenType.Comma)) break;
+            this.advance();
+          }
+          const closed = this.expectClose(TokenType.RParen, openTok, ')');
+          if (closed && args.length !== arity) {
+            this.addDiagnostic('error', DiagnosticCode.WrongArity, `'${tok.value}()' expects ${arity} argument(s), got ${args.length}.`, tok);
+          }
+          if (tok.value === 'min_of' || tok.value === 'max_of') {
+            const [a, b] = args;
+            if (typeof a === 'number' && typeof b === 'number') return tok.value === 'min_of' ? Math.min(a, b) : Math.max(a, b);
+          }
+          return null;
+        }
+        break;
+      }
+      case TokenType.EOF:
+        this.incomplete = true;
+        return undefined;
+    }
+    this.addDiagnostic('error', DiagnosticCode.InvalidDuration, `Expected a duration (e.g. '5m', '1h').`, tok);
+    return undefined;
   }
 
   /** Attaches trailing `offset` / `@` modifiers to a selector-like node. */
@@ -721,11 +887,15 @@ export class Parser {
     if (expr.type !== 'VectorSelector' && expr.type !== 'MatrixSelector' && expr.type !== 'SubqueryExpr') return expr;
     let node = expr;
     let iterations = 0;
+    let seenOffset = false;
+    let seenAt = false;
     for (;;) {
       iterations++;
       if (iterations > 4) break;
       if (this.checkIdentifier('offset')) {
         const kwTok = this.advance();
+        if (seenOffset) this.addDiagnostic('error', DiagnosticCode.UnexpectedToken, `'offset' may only be used once per selector.`, kwTok);
+        seenOffset = true;
         let negative = false;
         if (this.check(TokenType.Sub)) {
           this.advance();
@@ -738,16 +908,32 @@ export class Parser {
       }
       if (this.check(TokenType.At)) {
         const atTok = this.advance();
+        if (seenAt) this.addDiagnostic('error', DiagnosticCode.UnexpectedToken, `'@' may only be used once per selector.`, atTok);
+        seenAt = true;
         let value: number | 'start' | 'end' = 0;
         let end = atTok.end;
         if (this.check(TokenType.Number)) {
           const numTok = this.advance();
-          value = Number(numTok.value);
+          value = parseNumberText(numTok.value);
+          end = numTok.end;
+        } else if (this.check(TokenType.Sub) && this.peek(1).type === TokenType.Number) {
+          this.advance();
+          const numTok = this.advance();
+          value = -parseNumberText(numTok.value);
           end = numTok.end;
         } else if (this.checkIdentifier('start') || this.checkIdentifier('end')) {
+          // `@ start()` / `@ end()` — the parentheses are required.
           const kwTok = this.advance();
           value = kwTok.value as 'start' | 'end';
           end = kwTok.end;
+          if (this.check(TokenType.LParen)) {
+            const openTok = this.advance();
+            if (this.expectClose(TokenType.RParen, openTok, ')')) end = this.tokens[this.pos - 1]!.end;
+          } else if (this.atEOF()) {
+            this.incomplete = true;
+          } else {
+            this.addDiagnostic('error', DiagnosticCode.UnexpectedToken, `Expected '()' after '${kwTok.value}'.`, this.current(), `Write '@ ${kwTok.value}()'.`);
+          }
         } else if (this.atEOF()) {
           this.incomplete = true;
         } else {

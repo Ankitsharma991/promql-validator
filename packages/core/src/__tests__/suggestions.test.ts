@@ -133,7 +133,7 @@ describe('getSuggestions — large datasets stay within cap', () => {
 });
 
 describe('AsyncSuggestionController — multi-subscriber support', () => {
-  it('notifies every subscriber, not just the most recent one (Part 28.4 shared registry)', async () => {
+  it('notifies every subscriber, not just the most recent one', async () => {
     vi.useFakeTimers();
     try {
       const provider = vi.fn(async () => [{ label: 'x', value: 'x', category: 'custom' }]);

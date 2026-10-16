@@ -124,3 +124,38 @@ describe('PluginRegistry — dynamic register/unregister', () => {
     expect(registry.list()).toEqual([]);
   });
 });
+
+describe('validatePluginConfiguration', () => {
+  it('accepts plugins that compose cleanly', async () => {
+    const { definePlugin, validatePluginConfiguration } = await import('../plugin/define-plugin.js');
+    const a = definePlugin({ name: 'acme.naming', customFunctions: ['acme_rate'] });
+    const b = definePlugin({ name: 'acme.dictionary', suggestionCategories: { metric: { priorityWeight: 50 } } });
+    expect(validatePluginConfiguration([a, b])).toEqual({ ok: true, issues: [] });
+  });
+
+  it('reports duplicate names, function conflicts and category conflicts', async () => {
+    const { validatePluginConfiguration } = await import('../plugin/define-plugin.js');
+    const { ok, issues } = validatePluginConfiguration([
+      { name: 'team-a', customFunctions: ['acme_rate'], suggestionCategories: { metric: { enabled: true } } },
+      { name: 'team-b', disabledFunctions: ['acme_rate'], suggestionCategories: { metric: { enabled: false } } },
+      { name: 'team-b' },
+    ]);
+    expect(ok).toBe(false);
+    expect(issues.map((i) => i.type).sort()).toEqual(['category-conflict', 'duplicate-name', 'function-conflict']);
+  });
+});
+
+describe('mergeSuggestionSources category precedence', () => {
+  it('lets later plugins override earlier ones, and direct settings override all plugins', async () => {
+    const { mergeSuggestionSources } = await import('../plugin/plugin-registry.js');
+    const plugins = [
+      { name: 'a', suggestionCategories: { metric: { priorityWeight: 1 }, 'label-name': { enabled: false } } },
+      { name: 'b', suggestionCategories: { metric: { priorityWeight: 2 } } },
+    ];
+    expect(mergeSuggestionSources(plugins).suggestionCategories).toEqual({ metric: { priorityWeight: 2 }, 'label-name': { enabled: false } });
+    expect(mergeSuggestionSources(plugins, { suggestionCategories: { metric: { priorityWeight: 9 } } }).suggestionCategories).toEqual({
+      metric: { priorityWeight: 9 },
+      'label-name': { enabled: false },
+    });
+  });
+});

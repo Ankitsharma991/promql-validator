@@ -33,15 +33,17 @@ export interface UseSuggestionsArgs {
 export interface UseSuggestionsResult {
   context: SuggestionContext;
   results: Suggestion[];
+  /** Time spent filtering and ranking `results`. */
+  rankDurationMs: number;
   loading: boolean;
   asyncError: unknown;
 }
 
 /**
- * Synchronous built-in/static/dynamic filtering runs on every keystroke (near-instant —
- * Part 27.1). Only the host's async provider, when supplied, is routed through the
+ * Synchronous built-in/static/dynamic filtering runs on every keystroke (it's near-instant).
+ * Only the host's async provider, when supplied, is routed through the
  * debounced/cancellable `AsyncSuggestionController`; its results are merged in once they
- * resolve without blanking the already-known synchronous results (Part 30 `suggestions-loading`).
+ * resolve without blanking the already-known synchronous results.
  */
 export function useSuggestions(args: UseSuggestionsArgs): UseSuggestionsResult {
   const {
@@ -98,9 +100,10 @@ export function useSuggestions(args: UseSuggestionsArgs): UseSuggestionsResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, context.astContext, context.activeLabel, context.activeMetric, context.tokenBeforeCursor]);
 
-  const results = useMemo(() => {
-    if (!enabled) return [];
-    return getSuggestionsForContext(
+  const { results, rankDurationMs } = useMemo(() => {
+    if (!enabled) return { results: [] as Suggestion[], rankDurationMs: 0 };
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const ranked = getSuggestionsForContext(
       context,
       {
         suggestions,
@@ -112,8 +115,9 @@ export function useSuggestions(args: UseSuggestionsArgs): UseSuggestionsResult {
       },
       { maxSuggestions },
     );
+    return { results: ranked, rankDurationMs: (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, context, suggestions, dynamicSuggestions, asyncState.results, suggestionCategories, recentlyUsedValues, maxSuggestions]);
 
-  return { context, results, loading: asyncState.status === 'loading', asyncError: asyncState.status === 'error' ? asyncState.error : undefined };
+  return { context, results, rankDurationMs, loading: asyncState.status === 'loading', asyncError: asyncState.status === 'error' ? asyncState.error : undefined };
 }

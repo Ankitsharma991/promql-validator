@@ -45,7 +45,7 @@ function findUnclosedOpener(query: string): TokenType | null {
  * closed with `)`), where a safe, unambiguous single-character fix generally isn't
  * derivable. The common, safe case — a bracket left open all the way to end-of-input while
  * the user is still typing — is by design classified as `incomplete` with *no* error
- * diagnostic at all (Part 29), so it can't be reached through this diagnostic-anchored API;
+ * diagnostic at all, so it can't be reached through this diagnostic-anchored API;
  * use `getIncompleteBracketFix()` for that case instead.
  */
 // A plain vector selector: optional metric name, optional `{...}` matchers, nothing else.
@@ -88,19 +88,9 @@ export function getQuickFix(diagnostic: Diagnostic, query?: string): QuickFix | 
         },
       };
     }
-    case DiagnosticCode.InvalidDuration: {
-      const pos = diagnostic.end;
-      return {
-        label: "Add unit 'm' (minutes)",
-        apply(q: string) {
-          const value = q.slice(0, pos) + 'm' + q.slice(pos);
-          return { value, cursorPosition: pos + 1 };
-        },
-      };
-    }
     case DiagnosticCode.UnknownFunction: {
       // "Did you mean 'rate'?" — reuse the same edit-distance suggestion already computed
-      // by the semantic validator (Part 13.2) rather than recomputing it; only offered when
+      // by the semantic validator rather than recomputing it; only offered when
       // that suggestion is actually present, so this is never a guess.
       const match = diagnostic.suggestion ? /Did you mean '([a-zA-Z_][a-zA-Z0-9_]*)'\?/.exec(diagnostic.suggestion) : null;
       const replacement = match?.[1];
@@ -121,7 +111,7 @@ export function getQuickFix(diagnostic: Diagnostic, query?: string): QuickFix | 
 
 /**
  * A "close it for me" fix for the common mid-typing case — a query still `incomplete`
- * (Part 29) with a bracket left open all the way to end-of-input, e.g. `rate(x[5m`. Always
+ * with a bracket left open all the way to end-of-input, e.g. `rate(x[5m`. Always
  * safe to apply (appending the correct closer for whatever's innermost-still-open can never
  * change the meaning of what's already been typed), which is exactly why it's *not* folded
  * into `getQuickFix()`: that function is diagnostic-anchored, and this case produces no

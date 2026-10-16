@@ -13,7 +13,7 @@ export function QueryBox() {
 }
 ```
 
-You get, with no further setup: real-grammar syntax/semantic validation with an error panel, built-in PromQL + monitoring-vocabulary autocomplete, bracket/quote completion, and a keyboard-navigable, accessible combobox.
+With no further setup you get syntax highlighting, validation with quick fixes, autocomplete for PromQL and common observability names, bracket and quote completion, and an accessible, keyboard-driven combobox.
 
 ## Uncontrolled mode
 
@@ -58,4 +58,16 @@ const result = validatePromQL('rate(http_requests_total[5m)');
 // { valid: false, incomplete: false, diagnostics: [{ code: 'PQ_UNCLOSED_BRACKET', message: "Expected closing ']'...", ... }] }
 ```
 
-Next: [Validation API](./validation.md) · [Editor Component](./editor-component.md) · [Theming](./theming.md).
+## Dark mode
+
+```tsx
+<PromQLInput theme="system" />
+```
+
+## Run the query on Enter
+
+```tsx
+<PromQLInput value={query} onChange={setQuery} onSubmit={runQuery} />
+```
+
+Next: [Editor component](./editor-component.md) · [Validation](./validation.md) · [PromQL support](./syntax-support.md) · [Theming](./theming.md).

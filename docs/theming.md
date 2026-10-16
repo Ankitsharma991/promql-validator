@@ -1,56 +1,76 @@
 # Theming
 
-Pure CSS custom properties — no CSS-in-JS runtime, no forced brand identity.
+Everything visual is a CSS custom property on `.promql-input-root`. There's no CSS-in-JS runtime and no brand colour baked in.
 
 ```tsx
+<PromQLInput theme="light" />   {/* default */}
 <PromQLInput theme="dark" />
-<PromQLInput theme={{ base: 'dark', tokens: { '--promql-input-radius': '4px' } }} />
+<PromQLInput theme="system" />  {/* follows prefers-color-scheme */}
+<PromQLInput theme={{ base: 'dark', tokens: { '--promql-input-radius': '4px', '--promql-syntax-function': '#ff9830' } }} />
 ```
 
-## Full token list
+`theme` is under your control, so your app's own theme state stays the source of truth. Use `'system'` if you simply want to follow the operating system.
 
-```css
---promql-input-background
---promql-input-text
---promql-input-border
---promql-input-border-focus
---promql-input-error
---promql-input-warning
---promql-input-placeholder
---promql-input-radius
---promql-input-padding-x
---promql-input-padding-y
---promql-input-font-family
---promql-input-font-size
---promql-suggestion-background
---promql-suggestion-background-hover
---promql-suggestion-background-selected
---promql-suggestion-text
---promql-suggestion-text-secondary
---promql-suggestion-border
---promql-diagnostics-background
---promql-diagnostics-text
-```
-
-Override any subset globally via CSS:
+You can also override tokens globally in CSS:
 
 ```css
 .promql-input-root {
   --promql-input-radius: 8px;
   --promql-input-font-family: 'JetBrains Mono', monospace;
+  --promql-input-border-focus: #f46800;
+}
+
+/* only in your dark theme */
+.my-app.dark .promql-input-root {
+  --promql-input-background: #181b1f;
 }
 ```
 
-## Structural overrides
+## Tokens
+
+### Input
+
+| Token | Purpose |
+|---|---|
+| `--promql-input-background`, `--promql-input-text` | Field colours |
+| `--promql-input-border`, `--promql-input-border-hover`, `--promql-input-border-focus` | Border states |
+| `--promql-input-focus-ring`, `--promql-input-error-ring` | Focus ring (normal / with an error) |
+| `--promql-input-error`, `--promql-input-warning`, `--promql-input-info`, `--promql-input-success` | Status colours (borders, underlines, valid icon) |
+| `--promql-input-placeholder`, `--promql-input-selection` | Placeholder and text-selection colours |
+| `--promql-input-radius`, `--promql-input-height`, `--promql-input-padding-x`, `--promql-input-padding-y` | Shape and size |
+| `--promql-input-font-family`, `--promql-input-font-size`, `--promql-input-line-height` | Code font |
+| `--promql-ui-font-family`, `--promql-ui-font-size` | Font for popups and messages |
+
+### Syntax highlighting
+
+`--promql-syntax-metric`, `--promql-syntax-function`, `--promql-syntax-keyword`, `--promql-syntax-label`, `--promql-syntax-string`, `--promql-syntax-number`, `--promql-syntax-duration`, `--promql-syntax-operator`, `--promql-syntax-punctuation`, `--promql-syntax-comment`
+
+### Suggestion popup
+
+| Token | Purpose |
+|---|---|
+| `--promql-suggestion-background`, `--promql-suggestion-text`, `--promql-suggestion-text-secondary` | Base colours |
+| `--promql-suggestion-background-hover`, `--promql-suggestion-background-selected` | Row states |
+| `--promql-suggestion-match` | Highlighted matching characters |
+| `--promql-suggestion-border`, `--promql-suggestion-divider`, `--promql-suggestion-surface`, `--promql-suggestion-shadow` | Frame, separators, footer |
+| `--promql-suggestion-max-height`, `--promql-suggestion-item-height` | Sizing |
+
+Kind badge colours: `--promql-kind-function`, `--promql-kind-aggregation`, `--promql-kind-operator`, `--promql-kind-keyword`, `--promql-kind-duration`, `--promql-kind-label`, `--promql-kind-metric`, `--promql-kind-value`, `--promql-kind-term`, `--promql-kind-custom`
+
+### Diagnostics
+
+`--promql-diagnostics-background`, `--promql-diagnostics-border`, `--promql-diagnostics-text`, and the same three with `-warning-` and `-info-` in the name (for example `--promql-diagnostics-warning-background`).
+
+## Class names
+
+Each part has a stable class (`promql-input-root`, `promql-input-box`, `promql-suggestion-popup`, `promql-suggestion-item`, `promql-diagnostic-item`, …), and you can add your own:
 
 ```tsx
-<PromQLInput classNames={{ root: 'my-root', input: 'my-input', popup: 'my-popup', item: 'my-item', itemSelected: 'my-item-selected', diagnostics: 'my-diags' }} />
+<PromQLInput classNames={{ root: 'my-root', input: 'my-input', popup: 'my-popup', item: 'my-item', itemSelected: 'my-item-active', diagnostics: 'my-diags', diagnosticItem: 'my-diag' }} />
 ```
 
-## Dark mode auto-detection
+State is exposed through data attributes for styling: `data-theme` on the root, `data-severity` on the box and diagnostic rows, `data-selected` on suggestion rows, `data-kind` on suggestion badges.
 
-Not automatic by default — `theme` is host-controlled so your app's own theme state stays the single source of truth. (A `prefers-color-scheme`-driven `theme="system"` mode is a documented Future item, not yet built.)
+## Contrast and motion
 
-## Contrast & reduced motion
-
-Default tokens meet WCAG AA contrast (4.5:1 text, 3:1 UI boundaries). All transitions are CSS-only and gated behind `@media (prefers-reduced-motion: reduce)` — the component never drives animation via JS timers that could bypass that preference.
+The default light and dark palettes meet WCAG AA contrast. Animations are CSS-only and turned off under `prefers-reduced-motion: reduce`. In Windows high-contrast mode (`forced-colors: active`), the highlight layer is hidden and the input falls back to system colours.

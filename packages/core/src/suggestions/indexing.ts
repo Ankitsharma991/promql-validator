@@ -11,8 +11,7 @@ interface IndexedSource {
 }
 
 /**
- * Per-source-array index cache, keyed by array *reference* (Part 90: "avoid rebuilding
- * expensive indexes on every render... use reference-aware invalidation"). A `WeakMap` means
+ * Per-source-array index cache, keyed by array *reference*. A `WeakMap` means
  * an index is garbage-collected automatically once the host stops passing that array
  * reference — no manual cache-eviction bookkeeping, no leak.
  */

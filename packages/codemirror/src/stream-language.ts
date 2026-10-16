@@ -10,7 +10,7 @@ interface PromQLStreamState {
 const KEYWORDS = new Set(['by', 'without', 'on', 'ignoring', 'group_left', 'group_right', 'offset', 'bool', 'and', 'or', 'unless']);
 const AGGREGATIONS = new Set(['sum', 'avg', 'min', 'max', 'count', 'count_values', 'stddev', 'stdvar', 'topk', 'bottomk', 'quantile', 'group', 'limitk', 'limit_ratio']);
 
-function classify(tok: Token): string | null {
+function classify(tok: Token, next: Token | undefined): string | null {
   switch (tok.type) {
     case TokenType.Number:
     case TokenType.Duration:
@@ -20,6 +20,7 @@ function classify(tok: Token): string | null {
     case TokenType.Identifier:
       if (KEYWORDS.has(tok.value)) return 'keyword';
       if (AGGREGATIONS.has(tok.value)) return 'keyword';
+      if (next?.type === TokenType.LParen) return 'variableName.function';
       return 'variableName';
     case TokenType.LParen:
     case TokenType.RParen:
@@ -41,15 +42,14 @@ function classify(tok: Token): string | null {
 }
 
 /**
- * Bridges `@promql-validator/core`'s real hand-written lexer into CodeMirror 6's simpler
- * (CM5-style) `StreamParser` interface — reusing the actual tokenizer for highlighting
- * (rather than a second, separately-maintained regex grammar) means syntax highlighting can
- * never drift out of sync with what the validator itself considers a token. Retokenizes
- * the current line once per line (cheap — the tokenizer is sub-millisecond even for long
- * lines, Part 27.1) and caches the result in per-line stream state.
+ * Bridges `@promql-validator/core`'s lexer into CodeMirror 6's `StreamParser` interface.
+ * Reusing the real tokenizer (instead of a second regex grammar) keeps highlighting in sync
+ * with what the validator considers a token. Each line is tokenized once and cached in the
+ * stream state; the tokenizer is sub-millisecond even for long lines.
  */
 export const promqlStreamParser: StreamParser<PromQLStreamState> = {
   name: 'promql',
+  languageData: { commentTokens: { line: '#' } },
 
   startState(): PromQLStreamState {
     return { tokens: [], index: 0, lineText: null };
@@ -57,6 +57,11 @@ export const promqlStreamParser: StreamParser<PromQLStreamState> = {
 
   token(stream, state): string | null {
     if (stream.eatSpace()) return null;
+    if (stream.peek() === '#') {
+      // The core lexer skips comments, so they're handled here.
+      stream.skipToEnd();
+      return 'comment';
+    }
 
     if (state.lineText !== stream.string) {
       state.tokens = tokenize(stream.string);
@@ -82,7 +87,7 @@ export const promqlStreamParser: StreamParser<PromQLStreamState> = {
     }
 
     stream.pos = tok.end;
-    return classify(tok);
+    return classify(tok, state.tokens[state.index + 1]);
   },
 };
 

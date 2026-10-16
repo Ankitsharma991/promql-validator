@@ -37,7 +37,7 @@ function stripQuotes(value: string): string {
  * This is a deliberately **narrow**, hand-written parser tailored to exactly that shape —
  * not a general-purpose YAML parser (no anchors/aliases, no flow-style `{}`/`[]` mappings,
  * no multi-document files). That mirrors this whole package's philosophy for the PromQL
- * grammar itself (PRD Part 8.3): the rule-file structure Prometheus actually uses is a
+ * grammar itself: the rule-file structure Prometheus actually uses is a
  * small, well-known, bounded shape, and a purpose-built parser for exactly that shape is
  * more reliable than depending on a general YAML library for one narrow field extraction.
  * For anything outside that shape, add a real YAML dependency in your own tooling and call

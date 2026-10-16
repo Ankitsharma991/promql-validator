@@ -7,5 +7,9 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["promql-validator-example-vite-react-ts", "promql-validator-example-nextjs"]
+  "ignore": [
+    "promql-validator-example-vite-react-ts",
+    "promql-validator-example-nextjs",
+    "promql-validator-example-nextjs-pages"
+  ]
 }

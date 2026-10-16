@@ -23,7 +23,7 @@ export interface BracketPairingOptions {
 }
 
 /**
- * Pure state-transition logic for bracket/quote auto-completion (PRD Part 15.2). Kept
+ * Pure state-transition logic for bracket/quote auto-completion. Kept
  * independent of React so it's directly unit-testable and reusable by any future
  * editor-shell binding (Monaco/CodeMirror adapters).
  */

@@ -31,7 +31,7 @@ interface ValidationOptions {
   customFunctions?: string[];            // extend the built-in function dictionary
   disabledFunctions?: string[];          // remove functions your org has banned
   maxQueryLength?: number;               // default: 10000 — beyond this, live validation is skipped
-  dialect?: 'promql' | 'metricsql';      // default: 'promql'; 'metricsql' throws UnsupportedDialectError today
+  dialect?: 'promql' | 'metricsql';      // default: 'promql' (any other value throws UnsupportedDialectError)
 }
 ```
 
@@ -58,6 +58,10 @@ After the first syntax error the parser is recovering, and anything it reports a
 
 `getQuickFix(diagnostic, query?)` returns a one-click fix when one can be derived with confidence. Pass the query the diagnostic was computed for to enable fixes that depend on the surrounding text — e.g. `rate(up)` → *Add range '[5m]'* → `rate(up[5m])`, offered only when the argument is a plain selector.
 
+## What's checked
+
+See [PromQL support](./syntax-support.md) for the full list of syntax and semantic rules. The behaviour is pinned down by a conformance corpus (`packages/core/conformance/promql.json`) of queries labelled with the verdict Prometheus gives them, run on every test pass.
+
 ## Custom validators
 
 ```ts
@@ -75,20 +79,17 @@ validatePromQL(query, { validators: [forbidUnboundedMatch] });
 
 Custom validators receive the already-parsed AST (no redundant parsing) and run **in addition to** the built-in one — `disableBuiltInValidation` is the true opt-out, for hosts building a fully custom pipeline.
 
-## Linting recording rules in CI
+## Linting rule files in CI
 
-`validatePromQL` needs no DOM/React, so it works directly in a Node script:
+Use the [CLI](./cli.md), or call the core directly from a Node script:
 
 ```ts
-import { validatePromQL } from '@promql-validator/core';
 import { readFileSync } from 'node:fs';
+import { validateRecordingRuleFile } from '@promql-validator/core';
 
-const exprs = extractExprFieldsFromYourRuleFile(readFileSync('rules.yml', 'utf8'));
-for (const expr of exprs) {
-  const result = validatePromQL(expr);
-  if (!result.valid) {
-    console.error(expr, result.diagnostics);
-    process.exitCode = 1;
-  }
+const { valid, entries } = validateRecordingRuleFile(readFileSync('rules.yml', 'utf8'));
+for (const entry of entries) {
+  if (!entry.result.valid) console.error(`${entry.ruleName} (line ${entry.line})`, entry.result.diagnostics);
 }
+process.exitCode = valid ? 0 : 1;
 ```

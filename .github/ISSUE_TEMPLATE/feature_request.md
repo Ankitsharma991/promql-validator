@@ -24,4 +24,4 @@ If you have a concrete idea of what the API should look like, sketch it here:
 
 ## Would this be a breaking change?
 
-Yes / No / Not sure — see [Versioning & Migration](https://github.com/promql-validator/promql-validator/blob/main/docs/versioning.md) for the project's compatibility policy.
+Yes / No / Not sure — see [Compatibility & support](https://github.com/Ankitsharma991/promql-validator/blob/main/docs/compatibility.md) for the project's compatibility policy.

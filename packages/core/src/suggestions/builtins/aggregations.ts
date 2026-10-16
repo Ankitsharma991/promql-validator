@@ -19,8 +19,8 @@ export const PROMQL_AGGREGATIONS: AggregationSpec[] = [
   { name: 'bottomk', detail: 'bottomk(k scalar, v instant-vector)', description: 'Selects the k smallest elements by sample value.', hasParam: true },
   { name: 'quantile', detail: 'quantile(φ scalar, v instant-vector)', description: 'Calculates the φ-quantile of the sample values over dimensions.', hasParam: true },
   { name: 'group', detail: 'group [by|without (labels)] (v instant-vector)', description: 'Groups series that have common label values; every result has a value of 1.', hasParam: false },
-  { name: 'limitk', detail: 'limitk(k scalar, v instant-vector)', description: 'Sample k series from the input, in no particular order.', hasParam: true },
-  { name: 'limit_ratio', detail: 'limit_ratio(r scalar, v instant-vector)', description: 'Sample a pseudo-random ratio r of series from the input.', hasParam: true },
+  { name: 'limitk', detail: 'limitk(k scalar, v instant-vector)', description: 'Sample k series from the input, in no particular order. Experimental.', hasParam: true },
+  { name: 'limit_ratio', detail: 'limit_ratio(r scalar, v instant-vector)', description: 'Sample a pseudo-random ratio r of series from the input. Experimental.', hasParam: true },
 ];
 
 export const PROMQL_AGGREGATION_NAMES = new Set(PROMQL_AGGREGATIONS.map((a) => a.name));

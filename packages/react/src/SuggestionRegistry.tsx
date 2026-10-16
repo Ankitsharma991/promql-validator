@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import { AsyncSuggestionController } from '@promql-validator/core';
-import type { DynamicSuggestionGroup, SuggestionCategoryConfig, SuggestionCacheOptions, SuggestionInput, SuggestionProvider } from '@promql-validator/core';
+import type { DynamicSuggestionGroup, PromQLPlugin, SuggestionCategoryConfig, SuggestionCacheOptions, SuggestionInput, SuggestionProvider } from '@promql-validator/core';
 
 export interface SuggestionRegistryValue {
   suggestions?: SuggestionInput[];
@@ -8,10 +8,12 @@ export interface SuggestionRegistryValue {
   suggestionProvider?: SuggestionProvider;
   suggestionCategories?: SuggestionCategoryConfig;
   suggestionProviderCache?: SuggestionCacheOptions | false;
-  /** One `AsyncSuggestionController` shared by every consuming `<PromQLInput/>` that
-   * doesn't override `suggestionProvider` itself — the actual point of this provider
-   * (Part 28.4): avoids N independent caches/in-flight-request trackers for the same
-   * underlying data source across N editors on one page. */
+  /** Plugins applied to every `<PromQLInput/>` below this provider, in addition to each
+   * instance's own `plugins`. Swap the array to change plugin sets (e.g. per tenant). */
+  plugins?: PromQLPlugin[];
+  /** One `AsyncSuggestionController` shared by every `<PromQLInput/>` that doesn't pass its
+   * own `suggestionProvider`, so N editors on a page share one cache and one set of
+   * in-flight requests instead of N. */
   sharedController?: AsyncSuggestionController | null;
 }
 
@@ -22,11 +24,10 @@ export interface PromQLSuggestionRegistryProviderProps extends SuggestionRegistr
 }
 
 /**
- * Optimization for a page rendering many `<PromQLInput/>` instances that should share the
- * same dynamic data (and, for an async `suggestionProvider`, the same underlying
- * `AsyncSuggestionController` cache) — e.g. a dashboard with 20 query editors, all of which
- * should offer the same live service/namespace list without each instance independently
- * re-fetching or re-indexing it (Part 28.4).
+ * Shares configuration across every `<PromQLInput/>` below it: suggestions, an async
+ * provider (with one shared cache), category settings and plugins. Built for pages with many
+ * editors, such as a dashboard with 20 panels that should all offer the same live
+ * service/namespace list without each one fetching and indexing it separately.
  *
  * This is additive sugar over per-instance props, not a required concept: any prop passed
  * directly to `<PromQLInput/>` overrides the registry's value for that instance, and
@@ -59,12 +60,15 @@ export function PromQLSuggestionRegistryProvider({ children, ...value }: PromQLS
   const memoized = useMemo<SuggestionRegistryValue>(
     () => ({ ...value, sharedController: controllerRef.current }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [value.suggestions, value.dynamicSuggestions, value.suggestionProvider, value.suggestionCategories, value.suggestionProviderCache, controllerRef.current],
+    [value.suggestions, value.dynamicSuggestions, value.suggestionProvider, value.suggestionCategories, value.suggestionProviderCache, value.plugins, controllerRef.current],
   );
   return <SuggestionRegistryContext.Provider value={memoized}>{children}</SuggestionRegistryContext.Provider>;
 }
 
-/** Reads the nearest `PromQLSuggestionRegistryProvider`'s value, or `null` if none is present. */
+/** The same component under its shorter name. */
+export const PromQLValidatorProvider = PromQLSuggestionRegistryProvider;
+
+/** Reads the nearest provider's value, or `null` if there is none. */
 export function useSuggestionRegistry(): SuggestionRegistryValue | null {
   return useContext(SuggestionRegistryContext);
 }

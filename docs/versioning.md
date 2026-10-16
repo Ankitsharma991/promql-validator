@@ -1,12 +1,13 @@
-# Versioning & Migration
+# Versioning & Releases
 
-## Policy
+The versioning rules, the support window and the tested versions are on [Compatibility & support](./compatibility.md).
 
-- Package semver governs **API** compatibility (props, exported functions/types) for each of `@promql-validator/core`, `@promql-validator/react`, and `promql-validator`, versioned independently.
-- Grammar-dictionary updates (a new Prometheus function added to the built-ins) are **not** breaking changes by default — shipped as minor/patch, tracked in [`CHANGELOG-GRAMMAR.md`](https://github.com/promql-validator/promql-validator/blob/main/CHANGELOG-GRAMMAR.md), separate from the package's own `CHANGELOG.md`, since a dictionary update is a data change, not an API change.
-- A `Diagnostic.code` is never removed or repurposed without a major version bump — code is expected to branch on it.
-- Deprecated props/exports keep working with a dev-mode-only `console.warn` (stripped from production builds) for at least one minor version before removal in the next major.
+## How releases are made
 
-## Releases
+Releases use [Changesets](https://github.com/changesets/changesets):
 
-Managed via [Changesets](https://github.com/changesets/changesets) — each PR that changes published behavior includes a changeset file describing the bump (patch/minor/major) and a one-line summary; merging to `main` triggers a version-bump PR, and merging *that* publishes to npm with provenance.
+1. A pull request that changes published behaviour adds a changeset (`npm run changeset`) describing the bump (patch, minor or major) and a one-line summary.
+2. When it's merged to `main`, the release workflow opens a "Version Packages" pull request that bumps versions and updates each package's `CHANGELOG.md`.
+3. Merging that pull request publishes to npm with provenance and attaches a CycloneDX SBOM per package to the workflow run.
+
+Dictionary and grammar coverage changes are also listed in [`CHANGELOG-GRAMMAR.md`](https://github.com/Ankitsharma991/promql-validator/blob/main/CHANGELOG-GRAMMAR.md).

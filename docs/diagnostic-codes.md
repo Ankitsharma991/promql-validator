@@ -1,18 +1,20 @@
 # Diagnostic Codes
 
-Stable, documented, versioned — branch on `code`, never on `message` text (messages may be reworded across minor versions; codes are not, per the project's semver policy).
+Branch on `code`, never on `message`. Messages can be reworded in any release (and translated through the editor's `messages.diagnostic`); codes only change in a major version.
+
+Only the first syntax error in a query is reported. Semantic codes (`PQ_WRONG_ARITY`, `PQ_WRONG_ARG_TYPE`, …) are reported once the syntax is clean.
 
 | Code | Severity | Meaning |
 |---|---|---|
 | `PQ_UNCLOSED_BRACKET` | error | A `(`, `{`, or `[` was never closed |
-| `PQ_UNEXPECTED_TOKEN` | error | A token appeared where the grammar didn't expect one |
+| `PQ_UNEXPECTED_TOKEN` | error | A token appeared where the grammar didn't expect one (including a repeated `offset`/`@` and a range with no selector, `rate([5m])`) |
 | `PQ_UNEXPECTED_EOF` | error | Input ended where a primary expression was expected (surfaced only when *not* a recognized incomplete-typing shape) |
-| `PQ_INVALID_DURATION` | error | A range/offset/subquery duration is missing its unit, or isn't a recognized duration |
+| `PQ_INVALID_DURATION` | error | A duration is malformed (`5m1h`: units out of order), missing (`x[`, followed by something else) or not positive (`x[-5m]`) |
 | `PQ_WRONG_ARITY` | error | A function or aggregation was called with the wrong number of arguments (an unfilled slot such as `rate()` is reported as `incomplete` instead) |
 | `PQ_WRONG_ARG_TYPE` | error | e.g. `rate()` called with an instant vector instead of a range vector. Quick fix: *Add range '[5m]'* for a plain selector |
-| `PQ_UNKNOWN_FUNCTION` | warning (configurable) | An unrecognized function name — see `unknownFunctionSeverity` |
+| `PQ_UNKNOWN_FUNCTION` | warning (configurable) | An unrecognized function name; see `unknownFunctionSeverity`. Comes with a "Did you mean …?" suggestion and quick fix when a close match exists |
 | `PQ_UNKNOWN_AGGREGATION` | error | Reserved for future use |
-| `PQ_MISSING_LABEL_VALUE` | error | A label matcher's `=`/`!=`/`=~`/`!~` has no quoted value following it |
+| `PQ_MISSING_LABEL_VALUE` | error | A label matcher's `=`/`!=`/`=~`/`!~` has no quoted value following it. Quick fix: *Insert an empty value ""* |
 | `PQ_INVALID_LABEL_NAME` | error | Reserved for future use |
 | `PQ_INVALID_VECTOR_MATCH` | error | e.g. `group_left`/`group_right` used with a set operator (`and`/`or`/`unless`) |
 | `PQ_CONFLICTING_MODIFIERS` | error | Both `by` and `without` (or a repeated grouping clause) on one aggregation |
@@ -25,4 +27,4 @@ Stable, documented, versioned — branch on `code`, never on `message` text (mes
 
 ## Deprecation policy
 
-A diagnostic code is never removed or repurposed without a major version bump (per `CHANGELOG-GRAMMAR.md`'s separation from the package's own semver) — hosts are expected to build i18n'd or app-specific messaging keyed on `code`.
+A diagnostic code is never removed or repurposed without a major version bump, so it's safe to build translated or app-specific messages keyed on `code`.

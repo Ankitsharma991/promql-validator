@@ -22,7 +22,8 @@ export function mergeSuggestionSources(plugins: PromQLPlugin[], base?: Suggestio
     ...base,
     suggestions: [...plugins.flatMap((p) => p.suggestions ?? []), ...(base?.suggestions ?? [])],
     dynamicSuggestions: [...plugins.flatMap((p) => p.dynamicSuggestions ?? []), ...(base?.dynamicSuggestions ?? [])],
-    suggestionCategories: plugins.reduce((acc, p) => ({ ...acc, ...p.suggestionCategories }), { ...base?.suggestionCategories }),
+    // Later plugins override earlier ones; settings passed directly override every plugin.
+    suggestionCategories: { ...plugins.reduce((acc, p) => ({ ...acc, ...p.suggestionCategories }), {}), ...base?.suggestionCategories },
   };
 }
 

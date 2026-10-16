@@ -1,5 +1,14 @@
 import type * as Monaco from 'monaco-editor';
-import { getSuggestions, validatePromQL, type ValidationOptions } from '@promql-validator/core';
+import {
+  extractContext,
+  getSuggestions,
+  runSuggestionProvider,
+  validatePromQL,
+  type GetSuggestionsOptions,
+  type SuggestionProvider,
+  type SuggestionSources,
+  type ValidationOptions,
+} from '@promql-validator/core';
 import { monarchLanguage, languageConfiguration } from './monarch-language.js';
 import { suggestionToCompletionItem, diagnosticToMarker } from './convert.js';
 
@@ -17,18 +26,22 @@ export interface RegisterPromQLLanguageOptions {
   validationDebounceMs?: number;
   /** Extra validators/dictionary overrides, forwarded to `validatePromQL`. */
   validationOptions?: Omit<ValidationOptions, 'dialect'>;
+  /** Your own completion data: static `suggestions`, `dynamicSuggestions` groups, category settings. */
+  sources?: Omit<SuggestionSources, 'providedSuggestions'>;
+  /** Async completion source (e.g. label values from your metrics backend). Cancelled when
+   * Monaco cancels the completion request. */
+  suggestionProvider?: SuggestionProvider;
+  /** Ranking options such as `maxSuggestions`. */
+  engineOptions?: GetSuggestionsOptions;
 }
 
 /**
- * Registers the `promql` language with Monaco: Monarch syntax highlighting, a context-aware
- * completion provider (backed by `@promql-validator/core`'s `getSuggestions`), and live
- * diagnostics markers (backed by `validatePromQL`) for every model created with this
- * language id. Call once per Monaco instance (e.g. once at app startup) — safe to call
- * multiple times (Monaco itself no-ops a duplicate `languages.register` for the same id).
+ * Registers the `promql` language with Monaco: highlighting, context-aware completion
+ * (`getSuggestions` plus your own sources) and live diagnostics markers (`validatePromQL`)
+ * for every model using this language id. Call it once per Monaco instance; calling it
+ * again is harmless. Returns a disposable that removes the providers.
  *
- * `monaco-editor` is an optional peer dependency — never imported by value here except
- * through the instance you pass in, so this package adds nothing to your bundle unless you
- * actually use it.
+ * `monaco-editor` is only used through the instance you pass in, never imported directly.
  */
 export function registerPromQLLanguage(monaco: typeof Monaco, options: RegisterPromQLLanguageOptions = {}): Monaco.IDisposable {
   const dialect = options.dialect ?? 'promql';
@@ -46,10 +59,16 @@ export function registerPromQLLanguage(monaco: typeof Monaco, options: RegisterP
   disposables.push(
     monaco.languages.registerCompletionItemProvider(PROMQL_LANGUAGE_ID, {
       triggerCharacters: ['{', '(', '[', '"', "'", ',', '=', ' '],
-      provideCompletionItems(model, position) {
+      async provideCompletionItems(model, position, _context, token) {
         const value = model.getValue();
         const cursorOffset = model.getOffsetAt(position);
-        const results = getSuggestions(value, cursorOffset);
+        let providedSuggestions;
+        if (options.suggestionProvider) {
+          const controller = new AbortController();
+          token.onCancellationRequested(() => controller.abort());
+          providedSuggestions = await runSuggestionProvider(options.suggestionProvider, extractContext(value, cursorOffset), controller.signal);
+        }
+        const results = getSuggestions(value, cursorOffset, { ...options.sources, providedSuggestions }, options.engineOptions);
         const word = model.getWordUntilPosition(position);
         const range: Monaco.IRange = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn };
         return { suggestions: results.map((s) => suggestionToCompletionItem(s, monaco, range)) };

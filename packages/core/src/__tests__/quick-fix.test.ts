@@ -68,13 +68,11 @@ describe('getQuickFix — diagnostic-anchored fixes', () => {
     expect(fix!.apply(query).value).toBe('metric{label="",foo="x"}');
   });
 
-  it('adds a unit for a missing-unit duration', () => {
-    const query = 'metric[5]';
+  it('offers no fix for a malformed duration (the intended value is not inferable)', () => {
+    const query = 'metric[5m1h]';
     const diag = firstDiagnostic(query);
-    const fix = getQuickFix(diag);
-    const applied = fix!.apply(query);
-    expect(applied.value).toBe('metric[5m]');
-    expect(validatePromQL(applied.value).valid).toBe(true);
+    expect(diag.code).toBe('PQ_INVALID_DURATION');
+    expect(getQuickFix(diag, query)).toBeNull();
   });
 
   it('returns null for a genuine bracket-type mismatch (no safe automatic fix)', () => {

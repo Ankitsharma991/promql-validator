@@ -1,17 +1,21 @@
 {
   "name": "@promql-validator/codemirror",
   "version": "0.1.0",
-  "description": "CodeMirror 6 language extension for promql-validator — syntax highlighting, context-aware completion, and live linting, powered by @promql-validator/core.",
+  "description": "PromQL language support for CodeMirror 6: highlighting, completion and linting, powered by @promql-validator/core.",
   "license": "MIT",
-  "author": "promql-validator contributors",
+  "author": {
+    "name": "Ankit Sharma",
+    "email": "sharmaa7861@gmail.com",
+    "url": "https://ankitsharma991.com.np"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/promql-validator/promql-validator.git",
+    "url": "git+https://github.com/Ankitsharma991/promql-validator.git",
     "directory": "packages/codemirror"
   },
-  "homepage": "https://github.com/promql-validator/promql-validator/tree/main/packages/codemirror#readme",
+  "homepage": "https://github.com/Ankitsharma991/promql-validator/tree/main/packages/codemirror#readme",
   "bugs": {
-    "url": "https://github.com/promql-validator/promql-validator/issues"
+    "url": "https://github.com/Ankitsharma991/promql-validator/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -23,9 +27,14 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -64,6 +73,8 @@
     "codemirror",
     "codemirror6",
     "language",
-    "autocomplete"
+    "autocomplete",
+    "linter",
+    "observability"
   ]
 }

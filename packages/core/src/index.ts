@@ -11,6 +11,8 @@ export type { QuickFix } from './validator/quick-fix.js';
 export { PluginRegistry, mergeValidationOptions, mergeSuggestionSources, mergePluginProviders } from './plugin/plugin-registry.js';
 export { combineSuggestionProviders } from './plugin/combine-providers.js';
 export type { PromQLPlugin } from './plugin/types.js';
+export { definePlugin, validatePluginConfiguration } from './plugin/define-plugin.js';
+export type { PluginConfigurationIssue } from './plugin/define-plugin.js';
 export { validateRecordingRuleFile } from './rule-file/validate-rule-file.js';
 export type { RuleValidationEntry, RuleFileValidationResult } from './rule-file/validate-rule-file.js';
 
@@ -52,6 +54,7 @@ export { getSuggestions, getSuggestionsForContext } from './suggestions/engine.j
 export type { SuggestionSources, GetSuggestionsOptions } from './suggestions/engine.js';
 export { extractContext } from './suggestions/context-extractor.js';
 export { normalizeSuggestion } from './suggestions/types.js';
+export { runSuggestionProvider } from './suggestions/run-provider.js';
 export type {
   Suggestion,
   SuggestionInput,
@@ -77,7 +80,7 @@ export { PROMQL_AGGREGATIONS, findAggregationSpec, PROMQL_AGGREGATION_NAMES } fr
 export type { AggregationSpec } from './suggestions/builtins/aggregations.js';
 export { PROMQL_OPERATORS, COMMON_DURATIONS, DURATION_UNIT_SUGGESTIONS } from './suggestions/builtins/operators.js';
 export type { OperatorSpec } from './suggestions/builtins/operators.js';
-export { BUILTIN_LABEL_NAMES, BUILTIN_MONITORING_TERMS } from './suggestions/builtins/monitoring.js';
+export { BUILTIN_LABEL_NAMES, BUILTIN_METRICS, BUILTIN_MONITORING_TERMS } from './suggestions/builtins/monitoring.js';
 export type { MonitoringTermSpec } from './suggestions/builtins/monitoring.js';
 
 // ---- MetricsQL dialect (best-effort subset — see METRICSQL_FUNCTIONS' docstring) --------

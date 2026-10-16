@@ -46,6 +46,8 @@ export interface Token extends Span {
   value: string;
   line: number;
   column: number;
+  /** Set on a String token whose closing quote is missing (input ended inside it). */
+  unterminated?: boolean;
 }
 
 /** PromQL keywords that are only significant in specific grammatical positions;

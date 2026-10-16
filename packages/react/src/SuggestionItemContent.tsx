@@ -2,9 +2,11 @@ import React from 'react';
 import type { Suggestion } from '@promql-validator/core';
 import { getSuggestionKind } from './icons.js';
 import { matchIndices } from './highlight.js';
+import type { PromQLMessages } from './messages.js';
 
 export interface SuggestionItemContentProps {
   suggestion: Suggestion;
+  messages: PromQLMessages;
   iconMap?: Record<string, React.ReactNode>;
   /** The partial token being completed; matching characters in the label are emphasised. */
   matchText?: string;
@@ -50,29 +52,30 @@ function MatchedLabel({ label, matchText }: { label: string; matchText?: string 
 }
 
 /** Shared row markup between the default (ranked-cap) and virtualized suggestion popups. */
-export function SuggestionItemContent({ suggestion: s, iconMap, matchText }: SuggestionItemContentProps) {
+export function SuggestionItemContent({ suggestion: s, messages, iconMap, matchText }: SuggestionItemContentProps) {
   const kind = getSuggestionKind(s);
+  const kindLabel = messages.kindLabels[kind.id] ?? kind.label;
   const customIcon = s.icon ? iconMap?.[s.icon] : undefined;
   return (
     <>
-      <span className="promql-suggestion-kind" data-kind={kind.id} data-custom-icon={customIcon ? 'true' : undefined} aria-hidden="true" title={kind.label}>
+      <span className="promql-suggestion-kind" data-kind={kind.id} data-custom-icon={customIcon ? 'true' : undefined} aria-hidden="true" title={kindLabel}>
         {customIcon ?? kind.glyph}
       </span>
       <MatchedLabel label={s.label} matchText={matchText} />
-      <span className="promql-suggestion-detail">{s.detail ?? kind.label}</span>
+      <span className="promql-suggestion-detail">{s.detail ?? kindLabel}</span>
     </>
   );
 }
 
 /** Documentation pane for the highlighted suggestion, shown beneath the list. */
-export function SuggestionDocs({ id, suggestion: s }: { id: string; suggestion: Suggestion | undefined }) {
+export function SuggestionDocs({ id, suggestion: s, messages }: { id: string; suggestion: Suggestion | undefined; messages: PromQLMessages }) {
   if (!s || (!s.description && !s.detail)) return null;
   const kind = getSuggestionKind(s);
   return (
     <div id={id} className="promql-suggestion-docs">
       <div className="promql-suggestion-docs-header">
         <span className="promql-suggestion-docs-kind" data-kind={kind.id}>
-          {kind.label}
+          {messages.kindLabels[kind.id] ?? kind.label}
         </span>
         {s.detail ? <code className="promql-suggestion-docs-signature">{s.detail}</code> : null}
       </div>
@@ -81,37 +84,35 @@ export function SuggestionDocs({ id, suggestion: s }: { id: string; suggestion: 
   );
 }
 
-export function SuggestionFooter({ count }: { count: number }) {
+export function SuggestionFooter({ count, messages }: { count: number; messages: PromQLMessages }) {
   return (
     <div className="promql-suggestion-footer" aria-hidden="true">
       <span>
         <kbd>↑</kbd>
-        <kbd>↓</kbd> navigate
+        <kbd>↓</kbd> {messages.hintNavigate}
       </span>
       <span>
-        <kbd>↵</kbd> insert
+        <kbd>↵</kbd> {messages.hintInsert}
       </span>
       <span>
-        <kbd>esc</kbd> close
+        <kbd>esc</kbd> {messages.hintClose}
       </span>
-      <span className="promql-suggestion-footer-count">
-        {count} {count === 1 ? 'result' : 'results'}
-      </span>
+      <span className="promql-suggestion-footer-count">{messages.resultCount(count)}</span>
     </div>
   );
 }
 
-export function SuggestionStatus({ loading, asyncError, empty }: { loading: boolean; asyncError: unknown; empty: boolean }) {
+export function SuggestionStatus({ loading, asyncError, empty, messages }: { loading: boolean; asyncError: unknown; empty: boolean; messages: PromQLMessages }) {
   return (
     <>
-      {empty && !loading && !asyncError && <div className="promql-suggestion-empty">No matches</div>}
+      {empty && !loading && !asyncError && <div className="promql-suggestion-empty">{messages.noMatches}</div>}
       {loading && (
         <div className="promql-suggestion-loading">
           <span className="promql-spinner" aria-hidden="true" />
-          Loading…
+          {messages.loading}
         </div>
       )}
-      {asyncError ? <div className="promql-suggestion-loading promql-suggestion-error">Couldn't load suggestions.</div> : null}
+      {asyncError ? <div className="promql-suggestion-loading promql-suggestion-error">{messages.loadError}</div> : null}
     </>
   );
 }

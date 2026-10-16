@@ -36,6 +36,8 @@ import { SuggestionPopup } from './SuggestionPopup.js';
 import { QueryHighlight } from './QueryHighlight.js';
 import { CheckIcon } from './icons.js';
 import { isMetricNameSuggestion, isRangeVectorArgSlot } from './range-slot.js';
+import { resolveMessages, type PromQLMessages } from './messages.js';
+import type { TelemetryHooks } from './telemetry.js';
 
 // Loaded only when actually rendered (suggestionListMode="virtualized") — React.lazy's
 // factory isn't invoked until first mount, so this line alone never pulls the optional
@@ -88,8 +90,8 @@ export interface PromQLInputProps {
   suggestionCategories?: SuggestionCategoryConfig;
   suggestionProviderCache?: SuggestionCacheOptions | false;
   /**
-   * Distributable bundles of validators/dictionaries/suggestion sources (Part 71/72) — e.g.
-   * an org's own `@my-company/promql-plugin` package. Composable with the direct props
+   * Bundles of validators, dictionaries and suggestion sources, e.g. an org's own
+   * `@my-company/promql-plugin` package. Composable with the direct props
    * above (a plugin's `validators` run *alongside* the `validators` prop, not instead of
    * it); multiple plugins' `suggestionProvider`s are combined and run concurrently.
    */
@@ -123,8 +125,8 @@ export interface PromQLInputProps {
   /** Open the suggestion popup on focus even when the query is empty. Default: false. */
   suggestOnEmptyFocus?: boolean;
   /**
-   * Session-local (this component instance only, never persisted — Part 26 Privacy)
-   * "recently used" ranking boost for inserted suggestions. Default: false.
+   * Ranks recently inserted suggestions higher. Kept in memory for this component instance
+   * only and never persisted. Default: false.
    */
   trackRecentlyUsed?: boolean;
 
@@ -137,9 +139,22 @@ export interface PromQLInputProps {
    * false to render a plain text input (e.g. when the host applies its own text styling).
    */
   syntaxHighlighting?: boolean;
+  /** Override or translate any UI string. See `PromQLMessages`. */
+  messages?: Partial<PromQLMessages>;
+  /** BCP-47 language tag set as `lang` on the root element (helps screen readers). */
+  locale?: string;
+  /** Opt-in timing/count events for your own monitoring. See `TelemetryHooks`. */
+  telemetryHooks?: TelemetryHooks;
+  /** Identifies this editor in telemetry events when a page has many of them. */
+  instanceId?: string;
   classNames?: PartialSlotClassNames;
   iconMap?: Record<string, React.ReactNode>;
 
+  /**
+   * 'below' (default): underlines plus a diagnostics list under the input.
+   * 'inline': underlines only; messages are exposed to screen readers via aria-describedby.
+   * 'none': no diagnostics UI at all — build your own from `onValidation`.
+   */
   diagnosticsDisplay?: 'inline' | 'below' | 'none';
   maxVisibleDiagnostics?: number;
   showValidIndicator?: boolean;
@@ -217,7 +232,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     suggestionProvider,
     suggestionCategories,
     suggestionProviderCache,
-    plugins,
+    plugins: ownPlugins,
     validators,
     disableBuiltInValidation = false,
     validationDebounceMs = 150,
@@ -239,6 +254,10 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     style,
     theme,
     syntaxHighlighting = true,
+    messages: messageOverrides,
+    locale,
+    telemetryHooks,
+    instanceId,
     classNames,
     iconMap,
     diagnosticsDisplay = 'below',
@@ -308,8 +327,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   const [workerReady, setWorkerReady] = useState(false);
   useEffect(() => {
     if (!useWorker) return;
-    // Constructed only here (inside an effect, client-side only) — never at module scope
-    // or during render, so this is inert during SSR (Part 88).
+    // Created inside an effect (client-side only), never during render, so SSR is unaffected.
     const client = new ValidationWorkerClient();
     workerClientRef.current = client;
     setWorkerReady(client.available);
@@ -319,14 +337,21 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     };
   }, [useWorker]);
 
-  // Plugins compose with (never replace) the direct props above — an empty/absent
-  // `plugins` array makes every merge* call here a harmless passthrough.
+  const messages = useMemo(() => resolveMessages(messageOverrides), [messageOverrides]);
+
+  // Plugins from a surrounding <PromQLValidatorProvider> apply to every editor below it;
+  // this instance's own `plugins` are added on top.
+  const registry = useSuggestionRegistry();
+  const registryPlugins = registry?.plugins;
+  const plugins = useMemo(() => (registryPlugins?.length ? [...registryPlugins, ...(ownPlugins ?? [])] : ownPlugins), [registryPlugins, ownPlugins]);
+
+  // Plugins add to (never replace) the direct props; with no plugins every merge is a no-op.
   const mergedValidationOptions = useMemo(
     () => mergeValidationOptions(plugins ?? [], { validators, customFunctions, disabledFunctions }),
     [plugins, validators, customFunctions, disabledFunctions],
   );
 
-  const { result: validationResult, validatedValue } = useDebouncedValidationState({
+  const { result: validationResult, validatedValue, durationMs: validationDurationMs } = useDebouncedValidationState({
     value,
     debounceMs: validationDebounceMs,
     disableBuiltInValidation,
@@ -341,13 +366,20 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   void workerReady; // referenced only to trigger a re-render once the worker becomes available
 
   useEffect(() => {
-    if (validationResult) onValidation?.(validationResult);
+    if (!validationResult) return;
+    onValidation?.(validationResult);
+    telemetryHooks?.onValidation?.({
+      durationMs: validationDurationMs,
+      valid: validationResult.valid,
+      incomplete: validationResult.incomplete,
+      diagnosticCount: validationResult.diagnostics.length,
+      instanceId,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validationResult]);
 
   // A per-instance prop always wins; the shared registry (if any) only fills in what
-  // wasn't explicitly passed — see PromQLSuggestionRegistryProvider's docstring.
-  const registry = useSuggestionRegistry();
+  // wasn't explicitly passed.
   const effectiveSuggestions = suggestions ?? registry?.suggestions;
   const effectiveDynamicSuggestions = dynamicSuggestions ?? registry?.dynamicSuggestions;
   const effectiveSuggestionProvider = suggestionProvider ?? registry?.suggestionProvider;
@@ -373,7 +405,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   const mergedSuggestionProvider = useMemo(() => mergePluginProviders(plugins ?? [], effectiveSuggestionProvider), [plugins, effectiveSuggestionProvider]);
 
   const suggestionsEnabled = !disabled && !readOnly;
-  const { context, results, loading, asyncError } = useSuggestions({
+  const { context, results, loading, asyncError, rankDurationMs } = useSuggestions({
     value,
     cursorPosition: selection.start,
     suggestions: mergedSuggestionSources.suggestions,
@@ -389,8 +421,17 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   });
 
   useEffect(() => {
-    if (asyncError) onSuggestionError?.(asyncError);
+    if (!asyncError) return;
+    onSuggestionError?.(asyncError);
+    telemetryHooks?.onSuggestionProviderError?.({ error: asyncError, instanceId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asyncError, onSuggestionError]);
+
+  useEffect(() => {
+    if (!focused || !suggestionsEnabled) return;
+    telemetryHooks?.onSuggestionQuery?.({ durationMs: rankDurationMs, resultCount: results.length, instanceId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results]);
 
   useEffect(() => {
     setHighlightedIndex((i) => (results.length === 0 ? 0 : Math.min(i, results.length - 1)));
@@ -444,7 +485,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
       const formatted = collapseFormattedTextForSingleLineInput(formatPromQL(value, formatOptions));
       if (formatted !== value) commitValue(formatted, formatted.length);
     } catch {
-      // PromQLFormatError: leave the text exactly as-is rather than guessing (Part 16.2).
+      // PromQLFormatError: leave the text exactly as-is rather than guessing.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, formatOptions]);
@@ -573,9 +614,8 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   function handlePaste() {
     // Auto-pairing must never double-insert into pasted content — we don't intercept the
     // paste event itself, the browser inserts verbatim. formatOnPaste (default false, an
-    // explicit opt-in — silently reformatting a user's pasted query is a "fights the user"
-    // violation per Part 16.3) reads the live DOM value after paste lands, not a stale
-    // pre-paste closure.
+    // explicit opt-in, since silently reformatting a pasted query fights the user) reads the
+    // live DOM value after the paste lands, not a stale pre-paste closure.
     requestAnimationFrame(() => {
       if (!formatOnPaste) {
         syncSelectionFromDom();
@@ -610,7 +650,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   }
 
   // Dismiss-on-outside-click via pointerdown (avoids the focus/blur race that closes a
-  // popup before a click on it registers — Part 21).
+  // popup before a click on it registers).
   useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
       const root = rootRef.current;
@@ -622,17 +662,20 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, []);
 
-  // While the user is completing a token (popup open), a diagnostic touching the caret is
-  // about text they haven't finished typing — `rate(http_req|)` is momentarily an instant
-  // vector. Those are held back from the UI until the popup closes; `onValidation` and
-  // `getValidationResult()` still report the full result.
+  // While the user is completing a word (popup open), a diagnostic on that word is about
+  // text they haven't finished typing: `rate(http_req|)` is momentarily an instant vector.
+  // Those are held back until the popup closes; `onValidation` and `getValidationResult()`
+  // still report everything.
   const displayedDiagnostics = useMemo(() => {
-    const all = validationResult?.diagnostics ?? NO_DIAGNOSTICS;
-    if (!showPopup) return all;
+    const all = diagnosticsDisplay === 'none' ? NO_DIAGNOSTICS : (validationResult?.diagnostics ?? NO_DIAGNOSTICS);
+    const word = context.tokenBeforeCursor;
+    if (!showPopup || !word) return all;
     const caret = selection.start;
-    const kept = all.filter((d) => caret < d.start || caret > d.end);
+    const wordStart = caret - word.length;
+    // Only diagnostics that overlap the partial word itself; anything else is still shown.
+    const kept = all.filter((d) => d.end <= wordStart || d.start >= caret);
     return kept.length === all.length ? all : kept;
-  }, [validationResult, showPopup, selection.start]);
+  }, [validationResult, showPopup, selection.start, diagnosticsDisplay, context.tokenBeforeCursor]);
 
   const severity: 'error' | 'warning' | undefined = useMemo(() => {
     if (displayedDiagnostics.some((d) => d.severity === 'error')) return 'error';
@@ -676,7 +719,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
   const activeDescendant = showPopup && results[highlightedIndex] ? `${popupId}-option-${highlightedIndex}` : undefined;
 
   return (
-    <div ref={rootRef} className={`promql-input-root ${classNames?.root ?? ''} ${className ?? ''}`.trim()} data-theme={dataTheme} style={{ ...themeStyle, ...style }}>
+    <div ref={rootRef} className={`promql-input-root ${classNames?.root ?? ''} ${className ?? ''}`.trim()} data-theme={dataTheme} lang={locale} style={{ ...themeStyle, ...style }}>
       <div className="promql-input-box" data-severity={severity} data-disabled={disabled}>
         <div className="promql-input-field" data-highlighted={syntaxHighlighting || undefined}>
           {syntaxHighlighting && <QueryHighlight ref={highlightRef} value={value} diagnostics={highlightDiagnostics} />}
@@ -695,6 +738,8 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
             aria-activedescendant={activeDescendant}
             aria-label={ariaLabel}
             aria-disabled={disabled || undefined}
+            aria-invalid={severity === 'error' || undefined}
+            aria-describedby={diagnosticsDisplay === 'inline' && displayedDiagnostics.length > 0 ? `${popupId}-diagnostics` : undefined}
             className={`promql-input-textbox ${classNames?.input ?? ''}`.trim()}
             value={value}
             placeholder={placeholder}
@@ -718,7 +763,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
           />
         </div>
         {showValidIndicator && severity === undefined && validationResult && !validationResult.incomplete && validationResult.diagnostics.length === 0 && (
-          <span className="promql-valid-indicator" aria-hidden="true" title="Valid query">
+          <span className="promql-valid-indicator" aria-hidden="true" title={messages.validQuery}>
             <CheckIcon />
           </span>
         )}
@@ -737,6 +782,7 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
             iconMap={iconMap}
             classNames={classNames}
             matchText={context.tokenBeforeCursor}
+            messages={messages}
           />
         </Suspense>
       )}
@@ -753,20 +799,27 @@ export const PromQLInput = React.forwardRef<PromQLInputHandle, PromQLInputProps>
           iconMap={iconMap}
           classNames={classNames}
           matchText={context.tokenBeforeCursor}
+          messages={messages}
         />
       )}
 
       <span className="promql-visually-hidden" aria-live="polite">
-        {showPopup ? `${results.length} suggestions available` : ''}
+        {showPopup ? messages.suggestionsAvailable(results.length) : ''}
       </span>
 
-      {diagnosticsDisplay !== 'none' && validationResult && (
-        <DiagnosticsPanel query={validatedValue ?? value} diagnostics={displayedDiagnostics} maxVisible={maxVisibleDiagnostics} onSelect={handleDiagnosticSelect} onApplyFix={applyDiagnosticFix} classNames={classNames} />
+      {diagnosticsDisplay === 'inline' && displayedDiagnostics.length > 0 && (
+        // Inline mode shows only the underlines; the messages stay available to assistive tech.
+        <span id={`${popupId}-diagnostics`} className="promql-visually-hidden">
+          {displayedDiagnostics.map((d) => messages.diagnostic(d) ?? d.message).join(' ')}
+        </span>
+      )}
+      {diagnosticsDisplay === 'below' && validationResult && (
+        <DiagnosticsPanel query={validatedValue ?? value} diagnostics={displayedDiagnostics} maxVisible={maxVisibleDiagnostics} onSelect={handleDiagnosticSelect} onApplyFix={applyDiagnosticFix} classNames={classNames} messages={messages} />
       )}
       {diagnosticsDisplay !== 'none' && incompleteBracketFix && (
         <div className="promql-incomplete-hint">
           <button type="button" className="promql-diagnostic-fix" onClick={() => applyFix(incompleteBracketFix)}>
-            {incompleteBracketFix.label}
+            {messages.quickFix(incompleteBracketFix) ?? incompleteBracketFix.label}
           </button>
         </div>
       )}

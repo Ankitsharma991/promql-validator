@@ -51,8 +51,12 @@ describe('validatePromQL — invalid queries', () => {
     expect(result.diagnostics.some((d) => d.code === DiagnosticCode.MissingLabelValue)).toBe(true);
   });
 
-  it('flags an invalid duration missing a unit', () => {
-    const result = validatePromQL('metric[5]');
+  it('accepts a plain number of seconds as a duration, like Prometheus', () => {
+    expect(validatePromQL('metric[300]')).toEqual({ valid: true, incomplete: false, diagnostics: [] });
+  });
+
+  it('flags a duration whose units are out of order', () => {
+    const result = validatePromQL('metric[5m1h]');
     expect(result.valid).toBe(false);
     expect(result.diagnostics.some((d) => d.code === DiagnosticCode.InvalidDuration)).toBe(true);
   });

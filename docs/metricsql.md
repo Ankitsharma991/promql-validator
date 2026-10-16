@@ -4,7 +4,7 @@
 validatePromQL(query, { dialect: 'metricsql' });
 ```
 
-`dialect` defaults to `'promql'` (stable Prometheus PromQL). `'metricsql'` enables a **best-effort, conservative subset** of VictoriaMetrics' PromQL superset — see [`CHANGELOG-GRAMMAR.md`](https://github.com/promql-validator/promql-validator/blob/main/CHANGELOG-GRAMMAR.md#metricsql-victoriametrics-dialect--best-effort-subset) for exactly what is and isn't covered, and why this package doesn't claim full fidelity (it has no live access to verify VictoriaMetrics' ~100-function list against current documentation, and a wrong validator is worse than no validator).
+`dialect` defaults to `'promql'`. `'metricsql'` adds the parts of VictoriaMetrics' PromQL superset listed below. MetricsQL has around a hundred extra functions and this package covers the commonly used ones; any function it doesn't know is reported as an unknown-function *warning* (controlled by `unknownFunctionSeverity`), never as a hard error. [`CHANGELOG-GRAMMAR.md`](https://github.com/Ankitsharma991/promql-validator/blob/main/CHANGELOG-GRAMMAR.md) lists exactly what's covered.
 
 ## `WITH` templates
 
@@ -37,3 +37,9 @@ A curated subset covering the `rollup_*`, `range_*`, `running_*`, and `label_*` 
 ```tsx
 <PromQLInput dialect="metricsql" />
 ```
+
+The Monaco and CodeMirror adapters take the same `dialect` option.
+
+## Not covered yet
+
+Parameterized `WITH` templates (`f(x) = …`) and MetricsQL-only operator syntax beyond the above. See the [roadmap](./roadmap.md).

@@ -1,0 +1,211 @@
+{
+  "$comment": "PromQL conformance corpus. Each query is labelled with the verdict Prometheus gives it. Run it with: npx vitest run packages/core/src/__tests__/conformance.test.ts",
+  "valid": {
+    "selectors": [
+      "up",
+      "{job=\"api\"}",
+      "up{job=\"api\",code=~\"5..\",method!=\"GET\",path!~\"/health.*\"}",
+      "{__name__=~\"http_.*\"}",
+      "up{job=\"api\",}",
+      "{__name__=\"on\"}"
+    ],
+    "strings": [
+      "up{job='api'}",
+      "up{job=`api`}",
+      "up{path=\"a\\\"b\"}",
+      "\"a string\"",
+      "`raw \\n`"
+    ],
+    "numbers": [
+      "1",
+      "-2.43",
+      "3.4e-9",
+      "0x8f",
+      "-Inf",
+      "NaN",
+      "inf",
+      "1_000_000",
+      ".5",
+      ".123_456_789",
+      "0x_53_AB_F3_82",
+      "1e3"
+    ],
+    "ranges and durations": [
+      "up[5m]",
+      "up[1h30m]",
+      "up[54s321ms]",
+      "up[1y]",
+      "up[2w]",
+      "up[300]",
+      "up[1.5]"
+    ],
+    "offset and @": [
+      "up offset 5m",
+      "up offset -1w",
+      "up @ 1609746000",
+      "up @ start()",
+      "up @ end()",
+      "up offset 5m @ 1609746000",
+      "up @ 1609746000 offset 5m",
+      "rate(up[5m] offset 1w)",
+      "rate(up[5m] @ end())"
+    ],
+    "subqueries": [
+      "rate(x[5m])[30m:1m]",
+      "max_over_time(rate(x[5m])[1h:])",
+      "x[5m:] offset 1h",
+      "x[5m:1m] @ 100"
+    ],
+    "aggregations": [
+      "sum by (job) (x)",
+      "sum(x) by (job)",
+      "sum without (a, b) (x)",
+      "sum by () (x)",
+      "sum(x) without (job)",
+      "topk(3, x)",
+      "bottomk(3, x)",
+      "count_values(\"v\", x)",
+      "quantile(0.9, x)",
+      "group(x)",
+      "stddev(x)",
+      "stdvar(x)",
+      "limitk(2, x)",
+      "limit_ratio(0.5, x)",
+      "count(x)",
+      "avg(x)",
+      "min(x)",
+      "max(x)"
+    ],
+    "binary operators": [
+      "a + b",
+      "a - b * c / d % e ^ f",
+      "a > bool 1",
+      "a == bool b",
+      "a != b",
+      "a >= b",
+      "a <= b",
+      "a < b",
+      "a and b",
+      "a or b",
+      "a unless b",
+      "a atan2 b",
+      "-x",
+      "+x",
+      "- - x",
+      "2 ^ 3 ^ 2",
+      "(a + b) * c"
+    ],
+    "vector matching": [
+      "a and on(job) b",
+      "a / on(job) group_left(instance) b",
+      "a * ignoring(code) group_right b",
+      "a + on() b",
+      "a / ignoring(x) group_left() b"
+    ],
+    "comments": [
+      "up # comment",
+      "sum(\n  rate(x[5m]) # inner\n)"
+    ],
+    "UTF-8 names (Prometheus 3)": [
+      "{\"my.metric\"}",
+      "{\"my.metric\", \"service.name\"=\"x\"}",
+      "sum by (\"service.name\") ({\"http.server.duration\"})"
+    ],
+    "keywords as names": [
+      "sum by (on) (x)",
+      "x{on=\"a\"}",
+      "x{bool=\"1\"}",
+      "by",
+      "offset"
+    ],
+    "functions": [
+      "histogram_quantile(0.99, sum by (le) (rate(x_bucket[5m])))",
+      "label_replace(up, \"a\", \"$1\", \"b\", \"(.*)\")",
+      "label_join(up, \"dst\", \",\", \"a\", \"b\", \"c\")",
+      "clamp(x, 0, 1)",
+      "round(x)",
+      "round(x, 0.5)",
+      "vector(1)",
+      "scalar(x)",
+      "time()",
+      "pi()",
+      "day_of_week()",
+      "absent(x)",
+      "sort_desc(x)",
+      "timestamp(x)",
+      "predict_linear(x[1h], 3600)",
+      "quantile_over_time(0.9, x[5m])",
+      "holt_winters(x[1h], 0.5, 0.5)",
+      "double_exponential_smoothing(x[1h], 0.5, 0.5)",
+      "histogram_fraction(0, 0.2, x)",
+      "histogram_avg(x)",
+      "first_over_time(x[5m])",
+      "start_timestamp(x)",
+      "ts_of_max_over_time(x[5m])",
+      "mad_over_time(x[5m])",
+      "info(up)",
+      "info(up, {k8s_cluster_name=~\".+\"})",
+      "sort_by_label(x, \"a\", \"b\")",
+      "present_over_time(x[5m])"
+    ],
+    "duration expressions": [
+      "x[5m * 2]",
+      "x offset (1h / 2)",
+      "rate(x[step() * 4])",
+      "x[max_of(step(), 5s)]"
+    ]
+  },
+  "invalid": {
+    "syntax": [
+      "rate(x[5m)",
+      "x{job=}",
+      "1 +* 2",
+      "up}",
+      "foo bar",
+      "sum by (job) (x) (y)",
+      "a + bool b",
+      "x{job=~\"a\" job=\"b\"}",
+      "x @ foo",
+      "up{job=\"a\"}[5m:1m:1m]",
+      "1h"
+    ],
+    "durations": [
+      "x[1.5h]",
+      "x[5x]",
+      "x[5m1h]",
+      "x[-5m]",
+      "x[5m][5m]"
+    ],
+    "modifiers": [
+      "sum without(a) by(b) (x)",
+      "sum(x) by (job) by (a)",
+      "a and on(a) group_left b",
+      "x{a=\"1\"} offset 5m offset 1m"
+    ],
+    "types and arity": [
+      "rate(x)",
+      "rate(5)",
+      "topk(x)",
+      "histogram_quantile(0.9)",
+      "label_replace(x,\"a\")",
+      "abs(x, y)",
+      "count_values(x)",
+      "sum(a, b)"
+    ]
+  },
+  "incomplete": [
+    "sum(x) by",
+    "x offset",
+    "up{",
+    "a > bool",
+    "\"unclosed",
+    "x[]",
+    "()",
+    "rate(",
+    "rate()",
+    "sum()",
+    "topk(5, )",
+    "rate(up[5m]",
+    "foo +"
+  ]
+}
